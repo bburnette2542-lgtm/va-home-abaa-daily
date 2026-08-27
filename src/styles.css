@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #1b365d;
+  --color-navy-deep: #12243d;
+  --color-ink: #1a1f2b;
+  --color-muted: #5c6573;
+  --color-paper: #f6f3ec;
+  --color-paper-2: #ebe6db;
+  --color-fill: #efe8d6;
+  --color-line: #d5cfc2;
+  --color-ok: #2f6f4e;
+  --color-ok-fg: #f4f7f4;
+  --color-bad: #9b3a32;
+  --color-bad-fg: #fdf6f5;
+  --color-warn: #8a5a22;
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Source Serif 4", "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.official {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #111;
+  background: #fff;
+}
+
+.official table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.official th,
+.official td {
+  border: 1px solid #111;
+  padding: 4px 6px;
+  font-size: 11px;
+  vertical-align: top;
+}
+
+.official .bar {
+  background: #1b365d;
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  padding: 6px 8px;
+  text-transform: uppercase;
+}
+
+.official .box {
+  border: 1.5px solid #111;
+}
+
+@page {
+  size: letter;
+  margin: 0.42in;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  .print-page {
+    break-after: page;
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: auto !important;
+    min-height: 0 !important;
+  }
+  .print-page:last-child {
+    break-after: auto;
+  }
+}
