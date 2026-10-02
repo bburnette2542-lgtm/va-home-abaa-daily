@@ -79,9 +79,9 @@ export interface FileRoutesByFullPath {
   '/office/import': typeof OfficeImportRoute
   '/print/$id': typeof PrintIdRoute
   '/print/range': typeof PrintRangeRoute
+  '/office/': typeof OfficeIndexRoute
   '/api/office/summary': typeof ApiOfficeSummaryRoute
   '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
-  '/office/': typeof OfficeIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -90,9 +90,9 @@ export interface FileRoutesByTo {
   '/office/import': typeof OfficeImportRoute
   '/print/$id': typeof PrintIdRoute
   '/print/range': typeof PrintRangeRoute
+  '/office': typeof OfficeIndexRoute
   '/api/office/summary': typeof ApiOfficeSummaryRoute
   '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
-  '/office': typeof OfficeIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -103,9 +103,9 @@ export interface FileRoutesById {
   '/office/import': typeof OfficeImportRoute
   '/print/$id': typeof PrintIdRoute
   '/print/range': typeof PrintRangeRoute
+  '/office/': typeof OfficeIndexRoute
   '/api/office/summary': typeof ApiOfficeSummaryRoute
   '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
-  '/office/': typeof OfficeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,9 +117,9 @@ export interface FileRouteTypes {
     | '/office/import'
     | '/print/$id'
     | '/print/range'
+    | '/office/'
     | '/api/office/summary'
     | '/api/office/signed/$id'
-    | '/office/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,9 +128,9 @@ export interface FileRouteTypes {
     | '/office/import'
     | '/print/$id'
     | '/print/range'
+    | '/office'
     | '/api/office/summary'
     | '/api/office/signed/$id'
-    | '/office'
   id:
     | '__root__'
     | '/'
@@ -140,9 +140,9 @@ export interface FileRouteTypes {
     | '/office/import'
     | '/print/$id'
     | '/print/range'
+    | '/office/'
     | '/api/office/summary'
     | '/api/office/signed/$id'
-    | '/office/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -231,14 +231,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface OfficeRouteChildren {
-  OfficeImportRoute: typeof OfficeImportRoute
   OfficeIdRoute: typeof OfficeIdRoute
+  OfficeImportRoute: typeof OfficeImportRoute
   OfficeIndexRoute: typeof OfficeIndexRoute
 }
 
 const OfficeRouteChildren: OfficeRouteChildren = {
-  OfficeImportRoute: OfficeImportRoute,
   OfficeIdRoute: OfficeIdRoute,
+  OfficeImportRoute: OfficeImportRoute,
   OfficeIndexRoute: OfficeIndexRoute,
 }
 
