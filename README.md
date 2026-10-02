@@ -22,7 +22,7 @@ Load a test daily if you just want to practice. Those stay marked SAMPLE.
 
 ## Office
 
-Open `/office`, enter the shared passcode, search by date and status, upload the signed PDF, and use **Make PDF for these dates** (browser Save as PDF). Import older exported JSON files at `/office/import`. Dates on those files stay as they are.
+Open `/office`, enter the shared passcode, search by date and status, upload the signed PDF, and use **Make PDF for these dates** (browser Save as PDF). Import older exported JSON files at `/office/import`. Dates on those files stay as they are. **Void/delete** (with confirm) removes a test daily from the server.
 
 Read-only JSON for the bi-weekly report (same office passcode cookie, or `x-office-passcode` header):
 

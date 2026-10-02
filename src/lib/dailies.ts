@@ -1,4 +1,5 @@
 import {
+  canSubmit,
   isWaived,
   reportGaps,
   testWarnings,
@@ -221,6 +222,69 @@ function warningSentence(report: Report) {
   return warnings.map((w) => w.en).join(" ");
 }
 
+export function reportHasWaivers(report: Pick<Report, "waivers">) {
+  return waivedCount(report) > 0;
+}
+
+export function assertSubmitWaiversAllowed(
+  report: Pick<Report, "waivers">,
+  arnoldUnlocked: boolean,
+) {
+  if (reportHasWaivers(report) && !arnoldUnlocked) {
+    throw new Error("Arnold PIN required to waive a field.");
+  }
+}
+
+export function asUnsentServerDaily(report: Report): Report {
+  return {
+    ...report,
+    sentAt: "",
+    officeStatus: "draft",
+  };
+}
+
+export function asSentServerDaily(report: Report, sentAt = new Date().toISOString()): Report {
+  return {
+    ...report,
+    sentAt,
+    submittedAt: sentAt,
+    officeStatus: "waiting_signature",
+    updatedAt: sentAt,
+  };
+}
+
+export function assertCanReplaceDaily(existing: Report | null | undefined, incoming: Pick<Report, "id">) {
+  if (!existing) return;
+  if (existing.id !== incoming.id) {
+    throw new Error("This save would overwrite a different daily.");
+  }
+  const status = workflowStatus(existing);
+  if (status === "signed" || status === "filed") {
+    throw new Error("This daily is already signed or filed.");
+  }
+}
+
+export async function runCrewSubmit(
+  report: Report,
+  deps: {
+    arnoldUnlocked: boolean;
+    existingById?: Report | null;
+    existingAtPath?: Report | null;
+    save: (report: Report) => Promise<void>;
+    email: (report: Report) => Promise<void>;
+  },
+) {
+  if (!canSubmit(report)) {
+    throw new Error("Required fields are still blank. Arnold can waive a field if it does not apply.");
+  }
+  assertSubmitWaiversAllowed(report, deps.arnoldUnlocked);
+  assertCanReplaceDaily(deps.existingById, report);
+  if (deps.existingAtPath && deps.existingAtPath.id !== report.id) {
+    throw new Error("This save would overwrite a different daily.");
+  }
+  return submitDailyToOffice(report, { save: deps.save, email: deps.email });
+}
+
 export async function submitDailyToOffice(
   report: Report,
   deps: {
@@ -228,8 +292,12 @@ export async function submitDailyToOffice(
     email: (report: Report) => Promise<void>;
   },
 ) {
-  await deps.save(report);
-  await deps.email(report);
+  const unsent = asUnsentServerDaily(report);
+  await deps.save(unsent);
+  await deps.email(unsent);
+  const sent = asSentServerDaily(unsent);
+  await deps.save(sent);
+  return sent;
 }
 
 export async function sendReportsInOrder(

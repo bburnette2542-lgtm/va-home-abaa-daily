@@ -3,7 +3,7 @@ import { Inbox } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BootScreen } from "@/components/daily/boot";
 import { Button, Card, Field, Input } from "@/components/ui";
-import { listOfficeDailiesFn } from "@/lib/dailies.functions";
+import { listOfficeDailiesFn, voidOfficeDailyFn } from "@/lib/dailies.functions";
 import { statusLabel, type DailySummary } from "@/lib/dailies";
 import { t } from "@/lib/i18n";
 import type { OfficeStatus } from "@/lib/report";
@@ -29,6 +29,7 @@ function OfficeInbox() {
   const [rows, setRows] = useState<DailySummary[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [voiding, setVoiding] = useState("");
 
   async function search(nextFrom = from, nextTo = to, nextStatus = status) {
     setBusy(true);
@@ -42,6 +43,21 @@ function OfficeInbox() {
       setError(err instanceof Error ? err.message : "Could not load dailies.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onVoid(row: DailySummary) {
+    const ok = window.confirm(`${t(lang, "voidConfirm")}\n${row.date} #${row.jobSiteReportNo} (${row.id})`);
+    if (!ok) return;
+    setVoiding(row.id);
+    setError("");
+    try {
+      await voidOfficeDailyFn({ data: { id: row.id } });
+      setRows((current) => (current ?? []).filter((item) => item.id !== row.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not void that daily.");
+    } finally {
+      setVoiding("");
     }
   }
 
@@ -131,13 +147,21 @@ function OfficeInbox() {
                   {r.signed ? " · signed PDF" : ""}
                 </p>
               </Link>
-              <div className="mt-3 flex gap-3 text-sm">
+              <div className="mt-3 flex flex-wrap gap-3 text-sm">
                 <Link to="/daily/$id" params={{ id: r.id }} className="font-medium text-navy">
                   Form
                 </Link>
                 <Link to="/print/$id" params={{ id: r.id }} className="font-medium text-navy">
                   {t(lang, "print")}
                 </Link>
+                <button
+                  type="button"
+                  className="font-medium text-bad"
+                  disabled={voiding === r.id}
+                  onClick={() => void onVoid(r)}
+                >
+                  {voiding === r.id ? t(lang, "sending") : t(lang, "voidDaily")}
+                </button>
               </div>
             </Card>
           ))

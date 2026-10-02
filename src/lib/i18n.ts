@@ -149,6 +149,11 @@ const dict = {
   oldNumber: { en: "Old number", es: "Numero viejo" },
   uploadSigned: { en: "Upload signed PDF", es: "Subir PDF firmado" },
   markFiled: { en: "Mark filed", es: "Marcar archivado" },
+  voidDaily: { en: "Void/delete", es: "Anular / borrar" },
+  voidConfirm: {
+    en: "Void/delete this daily on the server? This cannot be undone.",
+    es: "Anular / borrar este diario en el servidor? No se puede deshacer.",
+  },
   signedPdf: { en: "Signed PDF", es: "PDF firmado" },
   statusFilter: { en: "Status", es: "Estado" },
   allStatuses: { en: "All statuses", es: "Todos los estados" },
