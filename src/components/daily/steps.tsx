@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { PhotoCapture } from "@/components/daily/photos";
 import { SignaturePad } from "@/components/daily/signature";
+import { WaiveField } from "@/components/daily/waive";
 import { Button, Card, Chip, Field, Input, Textarea, YN } from "@/components/ui";
 import { FLUID_LABEL, TRANS_LABEL, t } from "@/lib/i18n";
+import { testWarnings } from "@/lib/report";
 import {
   CREW_NAMES,
   FLUID_DEFECTS,
@@ -32,23 +34,25 @@ export function StepBody({
   lang,
   report,
   patch,
+  arnold,
 }: {
   step: number;
   lang: Lang;
   report: Report;
   patch: (p: Partial<Report>) => void;
+  arnold: boolean;
 }) {
   switch (step) {
     case 0:
-      return <StepWho lang={lang} report={report} patch={patch} />;
+      return <StepWho lang={lang} report={report} patch={patch} arnold={arnold} />;
     case 1:
-      return <StepSite lang={lang} report={report} patch={patch} />;
+      return <StepSite lang={lang} report={report} patch={patch} arnold={arnold} />;
     case 2:
-      return <StepMat lang={lang} report={report} patch={patch} />;
+      return <StepMat lang={lang} report={report} patch={patch} arnold={arnold} />;
     case 3:
-      return <StepLoc lang={lang} report={report} patch={patch} />;
+      return <StepLoc lang={lang} report={report} patch={patch} arnold={arnold} />;
     case 4:
-      return <StepVis lang={lang} report={report} patch={patch} />;
+      return <StepVis lang={lang} report={report} patch={patch} arnold={arnold} />;
     case 5:
       return <StepMils lang={lang} report={report} patch={patch} />;
     case 6:
@@ -62,7 +66,7 @@ export function StepBody({
         />
       );
     default:
-      return <StepSign lang={lang} report={report} patch={patch} />;
+      return <StepSign lang={lang} report={report} patch={patch} arnold={arnold} />;
   }
 }
 
@@ -70,10 +74,12 @@ function StepWho({
   lang,
   report,
   patch,
+  arnold,
 }: {
   lang: Lang;
   report: Report;
   patch: (p: Partial<Report>) => void;
+  arnold: boolean;
 }) {
   const [other, setOther] = useState("");
   function toggle(name: string) {
@@ -97,10 +103,15 @@ function StepWho({
         <Field label={t(lang, "of")}>
           <Input value={report.crewOf} inputMode="numeric" onChange={(e) => patch({ crewOf: e.target.value })} />
         </Field>
-        <Field label={t(lang, "jsr")}>
-          <Input value={report.jobSiteReportNo} inputMode="numeric" onChange={(e) => patch({ jobSiteReportNo: e.target.value })} />
+        <Field label={t(lang, "jsr")} hint={t(lang, "autoNumber")}>
+          <Input value={report.jobSiteReportNo} readOnly />
         </Field>
       </div>
+      {report.priorReportNo ? (
+        <p className="text-xs text-muted">
+          {t(lang, "oldNumber")}: #{report.priorReportNo}
+        </p>
+      ) : null}
       <Field label={t(lang, "date")}>
         <Input type="date" value={report.date} onChange={(e) => patch({ date: e.target.value })} />
       </Field>
@@ -112,6 +123,7 @@ function StepWho({
             </Chip>
           ))}
         </div>
+        <WaiveField id="filledBy" lang={lang} report={report} patch={patch} arnold={arnold} />
       </Field>
       <Field label={t(lang, "onSite")} hint={t(lang, "tapAll")}>
         <div className="flex flex-wrap gap-2">
@@ -140,6 +152,7 @@ function StepWho({
             {t(lang, "add")}
           </Button>
         </div>
+        <WaiveField id="onSite" lang={lang} report={report} patch={patch} arnold={arnold} />
       </Field>
     </div>
   );
@@ -149,10 +162,12 @@ function StepSite({
   lang,
   report,
   patch,
+  arnold,
 }: {
   lang: Lang;
   report: Report;
   patch: (p: Partial<Report>) => void;
+  arnold: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -166,6 +181,7 @@ function StepSite({
             value={report.substrateTemp}
             onChange={(e) => patch({ substrateTemp: e.target.value })}
           />
+          <WaiveField id="subTemp" lang={lang} report={report} patch={patch} arnold={arnold} />
         </Field>
         <Field label={t(lang, "ambTemp")}>
           <Input
@@ -173,6 +189,7 @@ function StepSite({
             value={report.ambientTemp}
             onChange={(e) => patch({ ambientTemp: e.target.value })}
           />
+          <WaiveField id="ambTemp" lang={lang} report={report} patch={patch} arnold={arnold} />
         </Field>
         <Field label={t(lang, "moisture")}>
           <Input value={report.substrateMoisture} onChange={(e) => patch({ substrateMoisture: e.target.value })} />
@@ -183,6 +200,7 @@ function StepSite({
       </div>
       <Field label={t(lang, "prep")} hint={t(lang, "prepHint")}>
         <Textarea value={report.surfacePrep} onChange={(e) => patch({ surfacePrep: e.target.value })} />
+        <WaiveField id="prep" lang={lang} report={report} patch={patch} arnold={arnold} />
       </Field>
       <Field label={t(lang, "accept")}>
         <YN
@@ -191,6 +209,7 @@ function StepSite({
           yes={t(lang, "yes")}
           no={t(lang, "no")}
         />
+        <WaiveField id="accept" lang={lang} report={report} patch={patch} arnold={arnold} />
       </Field>
     </div>
   );
@@ -200,10 +219,12 @@ function StepMat({
   lang,
   report,
   patch,
+  arnold,
 }: {
   lang: Lang;
   report: Report;
   patch: (p: Partial<Report>) => void;
+  arnold: boolean;
 }) {
   const mats = report.materials;
   function setBatch(i: number, batch: string) {
@@ -217,6 +238,7 @@ function StepMat({
       </Card>
       <Field label={t(lang, "batchRS")} hint={t(lang, "batchHint")}>
         <Input value={mats[0]?.batch ?? ""} onChange={(e) => setBatch(0, e.target.value)} />
+        <WaiveField id="rsBatch" lang={lang} report={report} patch={patch} arnold={arnold} />
       </Field>
       <Field label={t(lang, "batchSF")}>
         <Input
@@ -228,6 +250,7 @@ function StepMat({
             });
           }}
         />
+        <WaiveField id="sfBatch" lang={lang} report={report} patch={patch} arnold={arnold} />
       </Field>
       <Field label={t(lang, "inSpec")}>
         <YN value={report.materialsInSpec} onChange={(v) => patch({ materialsInSpec: v })} yes={t(lang, "yes")} no={t(lang, "no")} />
@@ -252,11 +275,13 @@ function LocCard({
   title,
   loc,
   onChange,
+  waive,
 }: {
   lang: Lang;
   title: string;
   loc: LocationBlock;
   onChange: (loc: LocationBlock) => void;
+  waive?: ReactNode;
 }) {
   const walls: { id: Wall; key: "north" | "south" | "east" | "west" }[] = [
     { id: "N", key: "north" },
@@ -305,6 +330,7 @@ function LocCard({
           ))}
         </div>
       </Field>
+      {waive}
     </Card>
   );
 }
@@ -313,14 +339,28 @@ function StepLoc({
   lang,
   report,
   patch,
+  arnold,
 }: {
   lang: Lang;
   report: Report;
   patch: (p: Partial<Report>) => void;
+  arnold: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <LocCard lang={lang} title={t(lang, "loc1")} loc={report.loc1} onChange={(loc1) => patch({ loc1 })} />
+      <LocCard
+        lang={lang}
+        title={t(lang, "loc1")}
+        loc={report.loc1}
+        onChange={(loc1) => patch({ loc1 })}
+        waive={
+          <>
+            <WaiveField id="tStart" lang={lang} report={report} patch={patch} arnold={arnold} />
+            <WaiveField id="tEnd" lang={lang} report={report} patch={patch} arnold={arnold} />
+            <WaiveField id="wall" lang={lang} report={report} patch={patch} arnold={arnold} />
+          </>
+        }
+      />
       <LocCard lang={lang} title={t(lang, "loc2")} loc={report.loc2} onChange={(loc2) => patch({ loc2 })} />
     </div>
   );
@@ -330,10 +370,12 @@ function StepVis({
   lang,
   report,
   patch,
+  arnold,
 }: {
   lang: Lang;
   report: Report;
   patch: (p: Partial<Report>) => void;
+  arnold: boolean;
 }) {
   function toggleFluid(d: FluidDefect) {
     const has = report.fluidDefects.includes(d);
@@ -381,6 +423,7 @@ function StepVis({
             </Chip>
           ))}
         </div>
+        <WaiveField id="fluidVis" lang={lang} report={report} patch={patch} arnold={arnold} />
       </div>
       <div>
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -401,6 +444,7 @@ function StepVis({
             </Chip>
           ))}
         </div>
+        <WaiveField id="transVis" lang={lang} report={report} patch={patch} arnold={arnold} />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Field label={t(lang, "defNoted")}>
@@ -429,6 +473,13 @@ function StepMils({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted">{t(lang, "milsHint")}</p>
+      {testWarnings(report)
+        .filter((w) => w.id.startsWith("milLow"))
+        .map((w) => (
+          <p key={w.id} className="rounded-md bg-warn px-3 py-2 text-sm text-paper">
+            {t(lang, "outOfSpec")}: {lang === "es" ? w.es : w.en}
+          </p>
+        ))}
       <div className="grid grid-cols-2 gap-2">
         <Field label={t(lang, "projectWet")}>
           <Input value={report.projectWetMils} onChange={(e) => patch({ projectWetMils: e.target.value })} />
@@ -500,7 +551,15 @@ function StepAdh({
 }) {
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted">{t(lang, "adhOptional")}</p>
       <p className="text-sm text-muted">{t(lang, "prefer")}</p>
+      {testWarnings(report)
+        .filter((w) => w.id.startsWith("adhLow"))
+        .map((w) => (
+          <p key={w.id} className="rounded-md bg-warn px-3 py-2 text-sm text-paper">
+            {t(lang, "outOfSpec")}: {lang === "es" ? w.es : w.en}
+          </p>
+        ))}
       <Field label={t(lang, "equip")}>
         <YN value={report.testingEquipOnSite} onChange={(v) => patch({ testingEquipOnSite: v })} yes={t(lang, "yes")} no={t(lang, "no")} />
       </Field>
@@ -586,19 +645,23 @@ function StepSign({
   lang,
   report,
   patch,
+  arnold,
 }: {
   lang: Lang;
   report: Report;
   patch: (p: Partial<Report>) => void;
+  arnold?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
       <Field label={t(lang, "gilbane")} hint={t(lang, "gilbaneHint")}>
         <YN value={report.leftWithGc} onChange={(v) => patch({ leftWithGc: v })} yes={t(lang, "yes")} no={t(lang, "no")} />
+        <WaiveField id="gc" lang={lang} report={report} patch={patch} arnold={Boolean(arnold)} />
       </Field>
       {report.leftWithGc === "N" ? (
         <Field label={t(lang, "gilbaneWhy")}>
           <Textarea value={report.leftWithGcWhy} onChange={(e) => patch({ leftWithGcWhy: e.target.value })} />
+          <WaiveField id="gcWhy" lang={lang} report={report} patch={patch} arnold={Boolean(arnold)} />
         </Field>
       ) : null}
       <Field label={t(lang, "comments")}>

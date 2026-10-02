@@ -14,7 +14,11 @@ import { Route as OfficeRouteImport } from './routes/office'
 import { Route as DailyIdRouteImport } from './routes/daily.$id'
 import { Route as OfficeIndexRouteImport } from './routes/office.index'
 import { Route as OfficeIdRouteImport } from './routes/office.$id'
+import { Route as OfficeImportRouteImport } from './routes/office.import'
 import { Route as PrintIdRouteImport } from './routes/print.$id'
+import { Route as PrintRangeRouteImport } from './routes/print.range'
+import { Route as ApiOfficeSummaryRouteImport } from './routes/api.office.summary'
+import { Route as ApiOfficeSignedIdRouteImport } from './routes/api.office.signed.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -41,9 +45,29 @@ const OfficeIdRoute = OfficeIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => OfficeRoute,
 } as any)
+const OfficeImportRoute = OfficeImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => OfficeRoute,
+} as any)
 const PrintIdRoute = PrintIdRouteImport.update({
   id: '/print/$id',
   path: '/print/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrintRangeRoute = PrintRangeRouteImport.update({
+  id: '/print/range',
+  path: '/print/range',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOfficeSummaryRoute = ApiOfficeSummaryRouteImport.update({
+  id: '/api/office/summary',
+  path: '/api/office/summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOfficeSignedIdRoute = ApiOfficeSignedIdRouteImport.update({
+  id: '/api/office/signed/$id',
+  path: '/api/office/signed/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -52,14 +76,22 @@ export interface FileRoutesByFullPath {
   '/office': typeof OfficeRouteWithChildren
   '/daily/$id': typeof DailyIdRoute
   '/office/$id': typeof OfficeIdRoute
+  '/office/import': typeof OfficeImportRoute
   '/print/$id': typeof PrintIdRoute
+  '/print/range': typeof PrintRangeRoute
+  '/api/office/summary': typeof ApiOfficeSummaryRoute
+  '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
   '/office/': typeof OfficeIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/daily/$id': typeof DailyIdRoute
   '/office/$id': typeof OfficeIdRoute
+  '/office/import': typeof OfficeImportRoute
   '/print/$id': typeof PrintIdRoute
+  '/print/range': typeof PrintRangeRoute
+  '/api/office/summary': typeof ApiOfficeSummaryRoute
+  '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
   '/office': typeof OfficeIndexRoute
 }
 export interface FileRoutesById {
@@ -68,22 +100,48 @@ export interface FileRoutesById {
   '/office': typeof OfficeRouteWithChildren
   '/daily/$id': typeof DailyIdRoute
   '/office/$id': typeof OfficeIdRoute
+  '/office/import': typeof OfficeImportRoute
   '/print/$id': typeof PrintIdRoute
+  '/print/range': typeof PrintRangeRoute
+  '/api/office/summary': typeof ApiOfficeSummaryRoute
+  '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
   '/office/': typeof OfficeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/office' | '/daily/$id' | '/office/$id' | '/print/$id' | '/office/'
+    | '/'
+    | '/office'
+    | '/daily/$id'
+    | '/office/$id'
+    | '/office/import'
+    | '/print/$id'
+    | '/print/range'
+    | '/api/office/summary'
+    | '/api/office/signed/$id'
+    | '/office/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/daily/$id' | '/office/$id' | '/print/$id' | '/office'
+  to:
+    | '/'
+    | '/daily/$id'
+    | '/office/$id'
+    | '/office/import'
+    | '/print/$id'
+    | '/print/range'
+    | '/api/office/summary'
+    | '/api/office/signed/$id'
+    | '/office'
   id:
     | '__root__'
     | '/'
     | '/office'
     | '/daily/$id'
     | '/office/$id'
+    | '/office/import'
     | '/print/$id'
+    | '/print/range'
+    | '/api/office/summary'
+    | '/api/office/signed/$id'
     | '/office/'
   fileRoutesById: FileRoutesById
 }
@@ -92,6 +150,9 @@ export interface RootRouteChildren {
   OfficeRoute: typeof OfficeRouteWithChildren
   DailyIdRoute: typeof DailyIdRoute
   PrintIdRoute: typeof PrintIdRoute
+  PrintRangeRoute: typeof PrintRangeRoute
+  ApiOfficeSummaryRoute: typeof ApiOfficeSummaryRoute
+  ApiOfficeSignedIdRoute: typeof ApiOfficeSignedIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -131,6 +192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OfficeIdRouteImport
       parentRoute: typeof OfficeRoute
     }
+    '/office/import': {
+      id: '/office/import'
+      path: '/import'
+      fullPath: '/office/import'
+      preLoaderRoute: typeof OfficeImportRouteImport
+      parentRoute: typeof OfficeRoute
+    }
     '/print/$id': {
       id: '/print/$id'
       path: '/print/$id'
@@ -138,15 +206,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrintIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/print/range': {
+      id: '/print/range'
+      path: '/print/range'
+      fullPath: '/print/range'
+      preLoaderRoute: typeof PrintRangeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/office/summary': {
+      id: '/api/office/summary'
+      path: '/api/office/summary'
+      fullPath: '/api/office/summary'
+      preLoaderRoute: typeof ApiOfficeSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/office/signed/$id': {
+      id: '/api/office/signed/$id'
+      path: '/api/office/signed/$id'
+      fullPath: '/api/office/signed/$id'
+      preLoaderRoute: typeof ApiOfficeSignedIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface OfficeRouteChildren {
+  OfficeImportRoute: typeof OfficeImportRoute
   OfficeIdRoute: typeof OfficeIdRoute
   OfficeIndexRoute: typeof OfficeIndexRoute
 }
 
 const OfficeRouteChildren: OfficeRouteChildren = {
+  OfficeImportRoute: OfficeImportRoute,
   OfficeIdRoute: OfficeIdRoute,
   OfficeIndexRoute: OfficeIndexRoute,
 }
@@ -159,6 +250,9 @@ const rootRouteChildren: RootRouteChildren = {
   OfficeRoute: OfficeRouteWithChildren,
   DailyIdRoute: DailyIdRoute,
   PrintIdRoute: PrintIdRoute,
+  PrintRangeRoute: PrintRangeRoute,
+  ApiOfficeSummaryRoute: ApiOfficeSummaryRoute,
+  ApiOfficeSignedIdRoute: ApiOfficeSignedIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

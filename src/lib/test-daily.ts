@@ -130,5 +130,6 @@ export function buildTestDaily(existingCount: number): Report {
     signatureDate: report.date,
     photos: testPhotos(),
     submittedAt: "",
+    sentAt: "",
   };
 }

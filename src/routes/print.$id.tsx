@@ -1,27 +1,39 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Printer, Share2, Download, Send } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Download, Printer, Send } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { BootScreen } from "@/components/daily/boot";
 import { OfficialForm } from "@/components/daily/official-form";
 import { Button } from "@/components/ui";
 import { completeness } from "@/lib/report";
-import { downloadJson, emailBernie, shareWithOffice } from "@/lib/share";
+import { isSent } from "@/lib/dailies";
+import { downloadJson } from "@/lib/share";
 import { t } from "@/lib/i18n";
+import { pushDailyToServer } from "@/lib/send-daily";
 import { useAppStore } from "@/lib/store";
-import { useHydrated } from "@/lib/use-hydrated";
+import { useLocalOrOfficeDaily } from "@/lib/use-remote-daily";
 
 export const Route = createFileRoute("/print/$id")({ component: PrintPage });
 
 function PrintPage() {
   const { id } = Route.useParams();
   const lang = useAppStore((s) => s.lang);
-  const report = useAppStore((s) => s.reports.find((r) => r.id === id));
-  const submit = useAppStore((s) => s.submit);
-  const hydrated = useHydrated();
-  const navigate = useNavigate();
+  const { report, hydrated, loading, needOffice, missing, fromLocal } = useLocalOrOfficeDaily(id);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
-  if (!hydrated) return <BootScreen />;
-  if (!report) {
+  if (!hydrated || loading) return <BootScreen />;
+  if (needOffice) {
+    return (
+      <main className="min-h-dvh bg-paper p-8 text-center text-ink">
+        <p className="mb-3">Open the office page first, then come back to this print link.</p>
+        <Link to="/office" search={{ next: `/print/${id}` }} className="text-navy underline">
+          {t(lang, "office")}
+        </Link>
+      </main>
+    );
+  }
+  if (!report || missing) {
     return (
       <main className="min-h-dvh bg-paper p-8 text-center text-ink">
         Daily not found.{" "}
@@ -33,20 +45,25 @@ function PrintPage() {
   }
 
   const daily = report;
-  const gaps = completeness(daily).blocking;
+  const complete = completeness(daily);
+  const gaps = complete.blocking;
+  const sent = isSent(daily);
 
-  async function onShare() {
-    const result = await shareWithOffice(daily);
-    if (result === "shared") toast.success(t(lang, "shared"));
-    if (result === "email") toast.success(t(lang, "submit"));
-  }
-
-  function onSubmit() {
-    if (gaps.length && !window.confirm(t(lang, "submitAnyway"))) return;
-    submit(daily.id);
-    emailBernie(daily);
-    toast.success(t(lang, "received"));
-    void navigate({ to: "/office/$id", params: { id: daily.id } });
+  async function onSubmit() {
+    if (gaps.length) {
+      toast.error(t(lang, "submitAnyway"));
+      return;
+    }
+    setBusy(true);
+    setError("");
+    const result = await pushDailyToServer(daily);
+    setBusy(false);
+    if (result.ok) {
+      toast.success(t(lang, "savedAndSent"));
+      return;
+    }
+    setError(result.error);
+    toast.error(result.error);
   }
 
   return (
@@ -54,7 +71,7 @@ function PrintPage() {
       <div className="no-print sticky top-0 z-10 border-b border-line bg-paper/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2">
           <Link
-            to="/daily/$id"
+            to={fromLocal ? "/daily/$id" : "/office/$id"}
             params={{ id }}
             className="inline-flex min-h-11 items-center px-2 text-sm font-medium text-navy"
           >
@@ -65,35 +82,42 @@ function PrintPage() {
             <Download className="size-4" />
             {t(lang, "export")}
           </Button>
-          <Button type="button" variant="secondary" onClick={() => void onShare()}>
-            <Share2 className="size-4" />
-            {t(lang, "share")}
-          </Button>
           <Button type="button" variant="secondary" onClick={() => window.print()}>
             <Printer className="size-4" />
             {t(lang, "print")}
           </Button>
-          {daily.submittedAt ? (
-            <Link
-              to="/office/$id"
-              params={{ id: daily.id }}
-              className="inline-flex min-h-12 items-center justify-center rounded-md bg-ok px-4 text-sm font-medium text-ok-fg"
-            >
-              {t(lang, "alreadyIn")}
-            </Link>
+          {sent ? (
+            <span className="inline-flex min-h-12 items-center justify-center rounded-md bg-ok px-4 text-sm font-medium text-ok-fg">
+              {t(lang, "savedAndSent")}
+            </span>
           ) : (
-            <Button type="button" variant="ok" onClick={onSubmit}>
+            <Button type="button" variant="ok" disabled={busy} onClick={() => void onSubmit()}>
               <Send className="size-4" />
-              {t(lang, "submit")}
+              {busy ? t(lang, "sending") : error ? t(lang, "retry") : t(lang, "submit")}
             </Button>
           )}
         </div>
         <p className="mx-auto mt-2 max-w-3xl text-xs text-muted">{t(lang, "formNote")}</p>
+        {error ? (
+          <p className="mx-auto mt-2 max-w-3xl text-sm text-bad">
+            {t(lang, "notSent")} — {error}
+          </p>
+        ) : null}
         {gaps.length ? (
           <div className="mx-auto mt-3 max-w-3xl rounded-md border border-line bg-fill px-3 py-2">
             <p className="text-xs font-medium text-navy">{t(lang, "stillNeed")}</p>
             <ul className="mt-1 list-disc pl-4 text-xs text-ink">
               {gaps.map((g) => (
+                <li key={g.id}>{lang === "es" ? g.es : g.en}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {complete.warnings.length ? (
+          <div className="mx-auto mt-3 max-w-3xl rounded-md border border-warn bg-fill px-3 py-2">
+            <p className="text-xs font-medium text-navy">{t(lang, "outOfSpec")}</p>
+            <ul className="mt-1 list-disc pl-4 text-xs text-ink">
+              {complete.warnings.map((g) => (
                 <li key={g.id}>{lang === "es" ? g.es : g.en}</li>
               ))}
             </ul>
