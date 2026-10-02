@@ -120,7 +120,12 @@ export function buildTestDaily(existingCount: number): Report {
     defNoted: "0",
     defCorrected: "0",
     defDescribe: "None. Visual CLEAN.",
+    thicknessAt1: true,
     milTests,
+    testingEquipOnSite: "Y",
+    testerOnSite: "Y",
+    discsOnSite: "Y",
+    adhesionAt1: true,
     adhesionTests,
     comments:
       "TEST SUBMISSION — fake answers and photos so the office inbox can be checked. Do not send to Gilbane.",

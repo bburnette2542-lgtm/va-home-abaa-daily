@@ -339,20 +339,51 @@ describe("report numbers follow work date", () => {
   });
 });
 
+function fillRequiredNonTestFields(report: Report) {
+  report.filledBy = "Arnold";
+  report.onSite = ["Arnold"];
+  report.substrateTemp = "72";
+  report.ambientTemp = "78";
+  report.surfacePrep = "Clean and dry";
+  report.substrateAcceptable = "Y";
+  report.materials[0] = { ...report.materials[0], batch: "RS-1" };
+  report.materials[2] = { ...report.materials[2], batch: "SF-1" };
+  report.loc1 = { ...report.loc1, timeStart: "7:00 AM", timeEnd: "3:00 PM", wall: "E" };
+  report.fluidClean = true;
+  report.transClean = true;
+  report.leftWithGc = "Y";
+  return report;
+}
+
+const TEST_GAP_IDS = /^(mils|adh|thickness|equip|tester|discs|whyNot|milTests|adhesion)/i;
+
 describe("optional testing", () => {
   it("does not treat empty wet mils or adhesion as missing and needs no waiver", () => {
     const report = newReport();
     const gaps = reportGaps(report);
-    assert.equal(gaps.some((g) => g.id === "mils" || g.id === "adh"), false);
+    assert.equal(gaps.some((g) => TEST_GAP_IDS.test(g.id)), false);
     assert.equal(testWarnings(report).length, 0);
-    assert.equal(
-      completeness(report).blocking.some((g) => g.id === "mils" || g.id === "adh"),
-      false,
-    );
+    assert.equal(completeness(report).blocking.some((g) => TEST_GAP_IDS.test(g.id)), false);
+    assert.equal(report.thicknessAt1, false);
+    assert.equal(report.adhesionAt1, false);
+    assert.equal(report.testingEquipOnSite, "");
+  });
+
+  it("lets a daily submit with no tests, no test waiver, and no missing-test flag", () => {
+    const report = fillRequiredNonTestFields(newReport());
+    const complete = completeness(report);
+    assert.equal(complete.ready, true);
+    assert.equal(complete.pct, 100);
+    assert.equal(complete.blocking.length, 0);
+    assert.equal(canSubmit(report), true);
+    assert.equal(report.waivers && Object.keys(report.waivers).length, 0);
+    const email = officeEmailText(report, "https://example.com/print/x");
+    assert.match(email, /Every required field is filled or Arnold waived it/);
+    assert.equal(/wet mil|adhesion|still blank/i.test(email), false);
   });
 
   it("flags an entered wet mil or adhesion reading only when it is out of spec", () => {
-    const report = newReport();
+    const report = fillRequiredNonTestFields(newReport());
     report.projectWetMils = "15";
     report.milTests[0] = { reading: "8", location: "A-3" };
     report.adhesionTests[0] = { gauge: "10", location: "A-3", mode: "MS" };
@@ -360,9 +391,12 @@ describe("optional testing", () => {
     assert.ok(warnings.some((w) => w.id === "milLow-0"));
     assert.ok(warnings.some((w) => w.id === "adhLow-0"));
     assert.equal(warnings.every((w) => w.blocking === false), true);
+    assert.equal(canSubmit(report), true);
+    assert.equal(completeness(report).pct, 100);
     report.milTests[0] = { reading: "16", location: "A-3" };
     report.adhesionTests[0] = { gauge: "185", location: "A-3", mode: "MS" };
     assert.equal(testWarnings(report).length, 0);
+    assert.equal(canSubmit(report), true);
   });
 });
 

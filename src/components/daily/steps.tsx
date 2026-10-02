@@ -494,7 +494,7 @@ function StepMils({
           <Input value={report.mfrDryMils} onChange={(e) => patch({ mfrDryMils: e.target.value })} />
         </Field>
       </div>
-      <Field label={t(lang, "visWhere")}>
+      <Field label={t(lang, "testedWhere")}>
         <div className="flex gap-2">
           <Chip selected={report.thicknessAt1} onClick={() => patch({ thicknessAt1: !report.thicknessAt1 })}>
             {t(lang, "loc1")}
@@ -572,7 +572,7 @@ function StepAdh({
       <Field label={t(lang, "diskSize")}>
         <Input value={report.diskSize} onChange={(e) => patch({ diskSize: e.target.value })} />
       </Field>
-      <Field label={t(lang, "visWhere")}>
+      <Field label={t(lang, "testedWhere")}>
         <div className="flex gap-2">
           <Chip selected={report.adhesionAt1} onClick={() => patch({ adhesionAt1: !report.adhesionAt1 })}>
             {t(lang, "loc1")}

@@ -261,15 +261,15 @@ export function newReport(_existingCount = 0): Report {
     projectDryMils: "10",
     mfrWetMils: "15",
     mfrDryMils: "10",
-    thicknessAt1: true,
+    thicknessAt1: false,
     thicknessAt2: false,
     milTests: Array.from({ length: 12 }, () => ({ reading: "", location: "" })),
     milDefDescribe: "",
-    testingEquipOnSite: "Y",
-    testerOnSite: "Y",
-    discsOnSite: "Y",
+    testingEquipOnSite: "",
+    testerOnSite: "",
+    discsOnSite: "",
     diskSize: "3",
-    adhesionAt1: true,
+    adhesionAt1: false,
     adhesionAt2: false,
     adhesionTests: Array.from({ length: 6 }, () => ({
       gauge: "",
@@ -346,7 +346,7 @@ export function reportGaps(r: Report): Gap[] {
     add("gcWhy", "If not left with Gilbane, why", "Si no se dejo con Gilbane, por que");
   }
   if ((r.photos?.length ?? 0) === 0) {
-    add("photos", "Add photos (substrate, mils, adhesion)", "Agregue fotos (sustrato, mils, adhesion)", false);
+    add("photos", "Add photos if you have them", "Agregue fotos si tiene", false);
   }
   return gaps;
 }

@@ -107,8 +107,12 @@ const dict = {
   },
   milsTitle: { en: "Wet mil thickness", es: "Espesor en mils humedos" },
   milsHint: {
-    en: "Optional. Only fill when you test this area. A day with no wet mils is fine — the crew comes back to finish the system. Target 15 wet → 10 dry. If you enter a reading below the target, it will be flagged.",
-    es: "Opcional. Solo llene cuando pruebe esta area. Un dia sin mils esta bien. Meta 15 humedo → 10 seco. Una lectura bajo la meta se marca.",
+    en: "Optional. Only fill when you test this area. A day with no wet mils is fine — the crew comes back to finish the system. No waiver needed. Target 15 wet → 10 dry. If you enter a reading below the target, it will be flagged.",
+    es: "Opcional. Solo llene cuando pruebe esta area. Un dia sin mils esta bien. No se necesita dispensa. Meta 15 humedo → 10 seco. Una lectura bajo la meta se marca.",
+  },
+  testedWhere: {
+    en: "If you tested today, where?",
+    es: "Si probo hoy, donde?",
   },
   projectWet: { en: "Project specified wet mils", es: "Mils humedos del proyecto" },
   projectDry: { en: "Project specified dry mils", es: "Mils secos del proyecto" },
@@ -129,8 +133,8 @@ const dict = {
   prefer: { en: "Prefer MS or SS.", es: "Se prefiere MS o SS." },
   whyNot: { en: "Notes (optional)", es: "Notas (opcional)" },
   adhOptional: {
-    en: "Optional. Only fill when you do adhesion pulls this visit. No test today is fine.",
-    es: "Opcional. Solo llene si hace adhesion hoy. No probar hoy esta bien.",
+    en: "Optional. Only fill when you do adhesion pulls this visit. No test today is fine — no waiver needed.",
+    es: "Opcional. Solo llene si hace adhesion hoy. No probar hoy esta bien — no se necesita dispensa.",
   },
   outOfSpec: { en: "Out of spec", es: "Fuera de spec" },
   arnoldUnlock: { en: "Arnold PIN", es: "PIN de Arnold" },
@@ -154,8 +158,8 @@ const dict = {
   statusFiled: { en: "Filed", es: "Archivado" },
   photos: { en: "Photos", es: "Fotos" },
   photosHint: {
-    en: "Substrate, mil gauge, adhesion disks, defects, location. Camera or library.",
-    es: "Sustrato, mils, discos, defectos, ubicacion. Camara o galeria.",
+    en: "Any photos from today. Add a mil gauge or adhesion disk only if you tested.",
+    es: "Fotos de hoy. Agregue mils o adhesion solo si probo.",
   },
   takePhoto: { en: "Take photo", es: "Tomar foto" },
   fromLibrary: { en: "From library", es: "De la galeria" },
