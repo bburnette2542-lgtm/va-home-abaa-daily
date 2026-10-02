@@ -246,6 +246,10 @@ const dict = {
     en: "Saved on the server and emailed to bernie@jamesriverexteriors.com.",
     es: "Guardado en el servidor y enviado a bernie@jamesriverexteriors.com.",
   },
+  receiptNoteUnsent: {
+    en: "Saved on the server. Not emailed yet.",
+    es: "Guardado en el servidor. Aun no se envio el correo.",
+  },
   emailAgain: { en: "Retry send", es: "Reintentar envio" },
   officeTo: { en: "Bernie Burnette · bernie@jamesriverexteriors.com", es: "Bernie Burnette · bernie@jamesriverexteriors.com" },
   viewForm: { en: "View official form", es: "Ver el formulario oficial" },

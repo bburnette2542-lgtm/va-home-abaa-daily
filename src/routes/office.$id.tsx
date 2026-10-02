@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { BootScreen } from "@/components/daily/boot";
 import { OfficialForm } from "@/components/daily/official-form";
 import { Button } from "@/components/ui";
-import { statusLabel, workflowStatus } from "@/lib/dailies";
+import { officeReceiptNoteKey, statusLabel, workflowStatus } from "@/lib/dailies";
 import { markFiledFn, uploadSignedPdfFn } from "@/lib/dailies.functions";
 import { t } from "@/lib/i18n";
 import { composedComments } from "@/lib/report";
@@ -131,7 +131,7 @@ function OfficeReceipt() {
               {t(lang, "sampleBanner")}
             </p>
           ) : null}
-          <p className="mt-3 text-sm text-muted">{t(lang, "receiptNote")}</p>
+          <p className="mt-3 text-sm text-muted">{t(lang, officeReceiptNoteKey(daily))}</p>
           <p className="mt-2 text-sm text-ink">{composedComments(daily)}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button type="button" variant="secondary" onClick={() => downloadJson(daily)}>
