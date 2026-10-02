@@ -1,6 +1,7 @@
-import { get, list, put } from "@vercel/blob";
+import { del, get, list, put } from "@vercel/blob";
 import { getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
 import {
+  assertCanReplaceDaily,
   assignReportNumbersByDate,
   dailyBlobPath,
   filterBlobPathsByDateRange,
@@ -83,6 +84,17 @@ export async function saveDailyBlob(report: Report) {
   return pathname;
 }
 
+export async function saveSubmittedDaily(report: Report) {
+  const existingById = await loadDailyById(report.id);
+  assertCanReplaceDaily(existingById, report);
+  const pathname = dailyBlobPath(report);
+  const existingAtPath = await readDailyJson(pathname);
+  if (existingAtPath && existingAtPath.id !== report.id) {
+    throw new Error("This save would overwrite a different daily.");
+  }
+  return saveDailyBlob(report);
+}
+
 async function listAllDailyPathnames() {
   const pathnames: string[] = [];
   let cursor: string | undefined;
@@ -99,6 +111,10 @@ async function listAllDailyPathnames() {
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);
   return pathnames;
+}
+
+export async function loadDailyJsonAtPath(pathname: string): Promise<Report | null> {
+  return readDailyJson(pathname);
 }
 
 async function readDailyJson(pathname: string): Promise<Report | null> {
@@ -143,12 +159,27 @@ export async function listDailySummaries(from?: string, to?: string, status?: st
   return summaries;
 }
 
-export async function loadDailyById(id: string): Promise<Report | null> {
+export async function findDailyPathname(id: string): Promise<string | null> {
   const needle = `_${sanitizeId(id)}.json`;
   const pathnames = await listAllDailyPathnames();
-  const match = pathnames.find((path) => path.endsWith(needle));
+  return pathnames.find((path) => path.endsWith(needle)) ?? null;
+}
+
+export async function loadDailyById(id: string): Promise<Report | null> {
+  const match = await findDailyPathname(id);
   if (!match) return null;
   return readDailyJson(match);
+}
+
+export async function voidDaily(id: string) {
+  requireOffice();
+  const pathname = await findDailyPathname(id);
+  if (!pathname) throw new Error("Daily not found on the server.");
+  const report = await readDailyJson(pathname);
+  await del(pathname, { token: blobToken() });
+  if (report?.signedPdfPath) {
+    await del(report.signedPdfPath, { token: blobToken() }).catch(() => undefined);
+  }
 }
 
 function sanitizeId(id: string) {

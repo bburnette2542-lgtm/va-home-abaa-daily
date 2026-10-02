@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DAILIES_STORAGE_KEY,
+  assertCanReplaceDaily,
+  assertSubmitWaiversAllowed,
   assignReportNumbersByDate,
   blobPathInDateRange,
   dailyBlobPath,
@@ -11,6 +13,8 @@ import {
   officeSummaryRow,
   parseDailyBlobPath,
   parsePersistedDailies,
+  reportHasWaivers,
+  runCrewSubmit,
   sendReportsInOrder,
   sentStatus,
   submitDailyToOffice,
@@ -178,17 +182,25 @@ describe("office passcode", () => {
 });
 
 describe("submit ordering", () => {
-  it("saves first, then emails", async () => {
+  it("saves first as unsent, emails, then marks waiting_signature", async () => {
     const calls: string[] = [];
-    await submitDailyToOffice(OLD_DAILY_A, {
-      save: async () => {
+    const saved: Report[] = [];
+    const sent = await submitDailyToOffice(OLD_DAILY_A, {
+      save: async (report) => {
         calls.push("save");
+        saved.push(report);
       },
       email: async () => {
         calls.push("email");
       },
     });
-    assert.deepEqual(calls, ["save", "email"]);
+    assert.deepEqual(calls, ["save", "email", "save"]);
+    assert.equal(saved[0]?.officeStatus, "draft");
+    assert.equal(saved[0]?.sentAt, "");
+    assert.equal(saved[1]?.officeStatus, "waiting_signature");
+    assert.ok(saved[1]?.sentAt);
+    assert.equal(sent.officeStatus, "waiting_signature");
+    assert.equal(sentStatus(sent), "sent");
   });
 
   it("does not email if save fails, and leaves status not sent", async () => {
@@ -211,17 +223,24 @@ describe("submit ordering", () => {
     assert.equal(isSent(OLD_DAILY_A), false);
   });
 
-  it("leaves status not sent if email fails after a successful save", async () => {
+  it("keeps the server copy unsent if email fails after a successful save", async () => {
+    const saved: Report[] = [];
     await assert.rejects(
       () =>
         submitDailyToOffice(OLD_DAILY_A, {
-          save: async () => undefined,
+          save: async (report) => {
+            saved.push(report);
+          },
           email: async () => {
             throw new Error("mail down");
           },
         }),
       /mail down/,
     );
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0]?.officeStatus, "draft");
+    assert.equal(saved[0]?.sentAt, "");
+    assert.equal(sentStatus(saved[0]!), "not_sent");
     assert.equal(sentStatus({ ...OLD_DAILY_A }), "not_sent");
   });
 
@@ -409,6 +428,82 @@ describe("Arnold waive and submit", () => {
     );
     assert.equal(canSubmit(report), true);
     assert.ok((report.waivers?.mils || report.waivers?.adh) == null);
+  });
+
+  it("rejects a waived payload unless Arnold is unlocked, and lets a no-waiver daily through", async () => {
+    const waived = fillRequiredNonTestFields(newReport());
+    waived.leftWithGc = "";
+    waived.waivers = { gc: { reason: "Gilbane already has Friday copy", at: "2026-09-02T12:00:00.000Z" } };
+    assert.equal(reportHasWaivers(waived), true);
+    assert.throws(() => assertSubmitWaiversAllowed(waived, false), /Arnold PIN required/);
+    assert.doesNotThrow(() => assertSubmitWaiversAllowed(waived, true));
+
+    const plain = fillRequiredNonTestFields(newReport());
+    assert.equal(reportHasWaivers(plain), false);
+    assert.doesNotThrow(() => assertSubmitWaiversAllowed(plain, false));
+
+    await assert.rejects(
+      () =>
+        runCrewSubmit(waived, {
+          arnoldUnlocked: false,
+          save: async () => undefined,
+          email: async () => undefined,
+        }),
+      /Arnold PIN required/,
+    );
+    const sent = await runCrewSubmit(plain, {
+      arnoldUnlocked: false,
+      save: async () => undefined,
+      email: async () => undefined,
+    });
+    assert.equal(sent.officeStatus, "waiting_signature");
+  });
+});
+
+describe("submit overwrite guard", () => {
+  it("lets the same unsent daily overwrite, and blocks a different or signed daily", async () => {
+    const incoming = fillRequiredNonTestFields(newReport());
+    incoming.id = "test-ignore-2099";
+    assert.doesNotThrow(() => assertCanReplaceDaily(null, incoming));
+    assert.doesNotThrow(() =>
+      assertCanReplaceDaily({ ...incoming, officeStatus: "draft", sentAt: "" }, incoming),
+    );
+    assert.doesNotThrow(() =>
+      assertCanReplaceDaily({ ...incoming, officeStatus: "waiting_signature", sentAt: "2026-09-02T12:00:00.000Z" }, incoming),
+    );
+    assert.throws(
+      () => assertCanReplaceDaily({ ...incoming, id: "other-daily" }, incoming),
+      /different daily/,
+    );
+    assert.throws(
+      () => assertCanReplaceDaily({ ...incoming, officeStatus: "signed", signedPdfPath: "signed/x.pdf" }, incoming),
+      /signed or filed/,
+    );
+    assert.throws(
+      () => assertCanReplaceDaily({ ...incoming, officeStatus: "filed" }, incoming),
+      /signed or filed/,
+    );
+
+    await assert.rejects(
+      () =>
+        runCrewSubmit(incoming, {
+          arnoldUnlocked: false,
+          existingById: { ...incoming, officeStatus: "signed", signedPdfPath: "signed/x.pdf" },
+          save: async () => undefined,
+          email: async () => undefined,
+        }),
+      /signed or filed/,
+    );
+    await assert.rejects(
+      () =>
+        runCrewSubmit(incoming, {
+          arnoldUnlocked: false,
+          existingAtPath: { ...incoming, id: "someone-else" },
+          save: async () => undefined,
+          email: async () => undefined,
+        }),
+      /different daily/,
+    );
   });
 });
 

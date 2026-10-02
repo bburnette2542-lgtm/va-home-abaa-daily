@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { submitDailyToOffice } from "./dailies";
-import { canSubmit, type Report } from "./report";
+import { dailyBlobPath, reportHasWaivers, runCrewSubmit } from "./dailies";
+import type { Report } from "./report";
 
 function asReport(data: unknown): Report {
   if (!data || typeof data !== "object") throw new Error("Daily is missing.");
@@ -12,18 +12,23 @@ function asReport(data: unknown): Report {
 export const submitDailyFn = createServerFn({ method: "POST" })
   .validator((data: Report) => asReport(data))
   .handler(async ({ data }) => {
-    if (!canSubmit(data)) {
-      throw new Error("Required fields are still blank. Arnold can waive a field if it does not apply.");
-    }
-    const { emailDailyToBernie, saveDailyBlob } = await import("./dailies.server");
-    const toSave: Report = { ...data, officeStatus: "waiting_signature" };
-    await submitDailyToOffice(toSave, {
+    const {
+      emailDailyToBernie,
+      isArnoldUnlocked,
+      loadDailyById,
+      loadDailyJsonAtPath,
+      requireArnold,
+      saveSubmittedDaily,
+    } = await import("./dailies.server");
+    if (reportHasWaivers(data)) requireArnold();
+    await runCrewSubmit(data, {
+      arnoldUnlocked: isArnoldUnlocked(),
+      existingById: await loadDailyById(data.id),
+      existingAtPath: await loadDailyJsonAtPath(dailyBlobPath(data)),
       save: async (report) => {
-        await saveDailyBlob(report);
+        await saveSubmittedDaily(report);
       },
-      email: async (report) => {
-        await emailDailyToBernie(report);
-      },
+      email: emailDailyToBernie,
     });
     return { ok: true as const };
   });
@@ -128,4 +133,15 @@ export const markFiledFn = createServerFn({ method: "POST" })
     const { markDailyFiled } = await import("./dailies.server");
     const report = await markDailyFiled(data.id);
     return { ok: true as const, status: report.officeStatus };
+  });
+
+export const voidOfficeDailyFn = createServerFn({ method: "POST" })
+  .validator((data: { id: string }) => {
+    if (!data?.id) throw new Error("Daily id is required.");
+    return { id: data.id };
+  })
+  .handler(async ({ data }) => {
+    const { voidDaily } = await import("./dailies.server");
+    await voidDaily(data.id);
+    return { ok: true as const };
   });
