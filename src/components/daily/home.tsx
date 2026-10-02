@@ -1,11 +1,14 @@
-import { FilePlus, Inbox, Printer, Trash2, Upload } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { Download, FilePlus, Inbox, Printer, Send, Trash2, Upload } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { AbaaMark } from "@/components/abaa-mark";
 import { Button, Card } from "@/components/ui";
+import { sentStatus, statusLabel, workflowStatus } from "@/lib/dailies";
 import { t } from "@/lib/i18n";
 import { completeness, type Report } from "@/lib/report";
+import { downloadJson } from "@/lib/share";
+import { pushAllUnsent, pushDailyToServer } from "@/lib/send-daily";
 import { reportStatus, useAppStore } from "@/lib/store";
 import { buildTestDaily } from "@/lib/test-daily";
 import { formatDisplayDate, todayISO } from "@/lib/utils";
@@ -19,12 +22,12 @@ export function HomeScreen() {
   const importOne = useAppStore((s) => s.importOne);
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [sendingAll, setSendingAll] = useState(false);
 
   const today = todayISO();
-  const todayDraft = useMemo(
-    () => reports.find((r) => r.date === today),
-    [reports, today],
-  );
+  const todayDraft = useMemo(() => reports.find((r) => r.date === today), [reports, today]);
+  const unsent = reports.filter((r) => sentStatus(r) === "not_sent");
+  const sentCount = reports.filter((r) => sentStatus(r) === "sent").length;
 
   function startNew() {
     const id = create();
@@ -52,6 +55,22 @@ export function HomeScreen() {
       }
     };
     reader.readAsText(file);
+  }
+
+  async function onSendAll() {
+    if (!unsent.length || sendingAll) return;
+    setSendingAll(true);
+    const result = await pushAllUnsent();
+    setSendingAll(false);
+    if (result.failed === 0) {
+      toast.success(t(lang, "savedAndSent"));
+    } else {
+      toast.error(
+        result.sent
+          ? `${result.sent} sent. ${result.failed} not sent. Try again.`
+          : t(lang, "sendFailed"),
+      );
+    }
   }
 
   return (
@@ -96,6 +115,19 @@ export function HomeScreen() {
             </Button>
           )}
 
+          {unsent.length ? (
+            <Button
+              type="button"
+              variant="ok"
+              className="min-h-14 text-base"
+              disabled={sendingAll}
+              onClick={() => void onSendAll()}
+            >
+              <Send className="size-4" />
+              {sendingAll ? t(lang, "sending") : `${t(lang, "sendAllUnsent")} · ${unsent.length}`}
+            </Button>
+          ) : null}
+
           <div className="flex gap-2">
             <Button type="button" variant="secondary" className="flex-1" onClick={loadTest}>
               {t(lang, "loadTest")}
@@ -123,9 +155,7 @@ export function HomeScreen() {
           >
             <Inbox className="size-4" />
             {t(lang, "office")}
-            {reports.filter((r) => r.submittedAt).length
-              ? ` · ${reports.filter((r) => r.submittedAt).length}`
-              : ""}
+            {sentCount ? ` · ${sentCount}` : ""}
           </Link>
 
           <section>
@@ -163,8 +193,8 @@ export function HomeScreen() {
             <span className="font-medium">2. Form</span> — answers land on the official 3-page ABAA daily (F-115-041).
           </li>
           <li>
-            <span className="font-medium">3. Office</span> — Email Bernie Burnette at bernie@jamesriverexteriors.com.
-            Print the official form and leave the paper with Gilbane.
+            <span className="font-medium">3. Office</span> — Send to Bernie Burnette. The daily stays on this phone
+            and is saved on the server. Print the official form and leave the paper with Gilbane.
           </li>
         </ol>
         <p className="text-xs text-muted">
@@ -185,16 +215,27 @@ function DailyRow({
   lang: "en" | "es";
   onDelete: () => void;
 }) {
+  const [retrying, setRetrying] = useState(false);
   const status = reportStatus(report);
+  const sendState = sentStatus(report);
   const c = completeness(report);
   const label =
-    status === "submitted"
+    sendState === "sent"
       ? t(lang, "submitted")
       : status === "signed"
         ? t(lang, "signed")
         : status === "ready"
           ? t(lang, "ready")
           : t(lang, "draft");
+
+  async function onRetry() {
+    setRetrying(true);
+    const result = await pushDailyToServer(report);
+    setRetrying(false);
+    if (result.ok) toast.success(t(lang, "savedAndSent"));
+    else toast.error(result.error);
+  }
+
   return (
     <Card className="flex items-center gap-3 p-3">
       <Link to="/daily/$id" params={{ id: report.id }} className="min-w-0 flex-1">
@@ -203,9 +244,28 @@ function DailyRow({
           {report.sample ? " · SAMPLE" : ""}
         </p>
         <p className="truncate text-xs text-muted">
+          {statusLabel(workflowStatus(report))} · {sendState === "not_sent" ? `${t(lang, "notSent")} · ` : ""}
           {label} · {c.pct}% · {report.filledBy || "—"} · #{report.jobSiteReportNo}
         </p>
       </Link>
+      {sendState === "not_sent" ? (
+        <button
+          type="button"
+          onClick={() => void onRetry()}
+          disabled={retrying}
+          className="flex min-h-11 items-center rounded-md px-2 text-xs font-medium text-navy"
+        >
+          {retrying ? t(lang, "sending") : t(lang, "retry")}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => downloadJson(report)}
+        className="flex size-11 items-center justify-center rounded-md text-navy"
+        aria-label={t(lang, "export")}
+      >
+        <Download className="size-4" />
+      </button>
       <Link
         to="/print/$id"
         params={{ id: report.id }}

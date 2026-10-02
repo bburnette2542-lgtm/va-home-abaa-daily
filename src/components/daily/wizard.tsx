@@ -1,9 +1,11 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AbaaMark } from "@/components/abaa-mark";
+import { ArnoldUnlock } from "@/components/daily/waive";
 import { StepBody, STEPS } from "@/components/daily/steps";
 import { Button } from "@/components/ui";
+import { arnoldStatusFn, unlockArnoldFn } from "@/lib/dailies.functions";
 import { t } from "@/lib/i18n";
 import { completeness } from "@/lib/report";
 import { useAppStore } from "@/lib/store";
@@ -15,6 +17,13 @@ export function DailyWizard({ id }: { id: string }) {
   const report = useAppStore((s) => s.reports.find((r) => r.id === id));
   const update = useAppStore((s) => s.update);
   const [step, setStep] = useState(0);
+  const [arnold, setArnold] = useState(false);
+
+  useEffect(() => {
+    void arnoldStatusFn()
+      .then((r) => setArnold(r.ok))
+      .catch(() => setArnold(false));
+  }, []);
 
   const stats = useMemo(() => (report ? completeness(report) : null), [report]);
 
@@ -49,6 +58,15 @@ export function DailyWizard({ id }: { id: string }) {
           >
             {report.sample ? "SAMPLE" : "LIVE"}
           </button>
+          <ArnoldUnlock
+            lang={lang}
+            unlocked={arnold}
+            onUnlock={async (pin) => {
+              const result = await unlockArnoldFn({ data: { pin } });
+              setArnold(result.ok);
+              return result.ok;
+            }}
+          />
           <button
             type="button"
             className="min-h-11 rounded-full border border-line px-3 text-xs font-medium"
@@ -85,6 +103,7 @@ export function DailyWizard({ id }: { id: string }) {
           lang={lang}
           report={report}
           patch={(p) => update(id, p)}
+          arnold={arnold}
         />
       </main>
 

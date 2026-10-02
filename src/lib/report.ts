@@ -1,4 +1,4 @@
-import { todayISO, uid } from "./utils";
+import { todayISO, uid } from "./utils.ts";
 
 export type Lang = "en" | "es";
 export type YN = "Y" | "N" | "";
@@ -150,6 +150,20 @@ export interface Report {
   certNumber: string;
   photos: Photo[];
   submittedAt: string;
+  sentAt?: string;
+  officeStatus?: OfficeStatus;
+  priorReportNo?: string;
+  waivers?: Record<string, FieldWaiver>;
+  signedPdfPath?: string;
+  signedPdfName?: string;
+  signedAt?: string;
+}
+
+export type OfficeStatus = "draft" | "waiting_signature" | "signed" | "filed";
+
+export interface FieldWaiver {
+  reason: string;
+  at: string;
 }
 
 export const CERTIFIED_INSTALLERS: Installer[] = [
@@ -202,9 +216,8 @@ export function defaultMaterials(): MaterialRow[] {
   ];
 }
 
-export function newReport(existingCount: number): Report {
+export function newReport(_existingCount = 0): Report {
   const date = todayISO();
-  const seq = existingCount + 1;
   return {
     id: uid(),
     createdAt: new Date().toISOString(),
@@ -212,7 +225,7 @@ export function newReport(existingCount: number): Report {
     sample: false,
     crewNumber: "1",
     crewOf: "1",
-    jobSiteReportNo: String(seq),
+    jobSiteReportNo: "0",
     date,
     filledBy: "",
     onSite: [],
@@ -248,15 +261,15 @@ export function newReport(existingCount: number): Report {
     projectDryMils: "10",
     mfrWetMils: "15",
     mfrDryMils: "10",
-    thicknessAt1: true,
+    thicknessAt1: false,
     thicknessAt2: false,
     milTests: Array.from({ length: 12 }, () => ({ reading: "", location: "" })),
     milDefDescribe: "",
-    testingEquipOnSite: "Y",
-    testerOnSite: "Y",
-    discsOnSite: "Y",
+    testingEquipOnSite: "",
+    testerOnSite: "",
+    discsOnSite: "",
     diskSize: "3",
-    adhesionAt1: true,
+    adhesionAt1: false,
     adhesionAt2: false,
     adhesionTests: Array.from({ length: 6 }, () => ({
       gauge: "",
@@ -273,7 +286,29 @@ export function newReport(existingCount: number): Report {
     certNumber: "306906",
     photos: [],
     submittedAt: "",
+    sentAt: "",
+    officeStatus: "draft",
+    priorReportNo: "",
+    waivers: {},
+    signedPdfPath: "",
+    signedPdfName: "",
+    signedAt: "",
   };
+}
+
+export const OFFICE_STATUSES: OfficeStatus[] = ["draft", "waiting_signature", "signed", "filed"];
+
+export function isWaived(r: Pick<Report, "waivers">, id: string) {
+  return Boolean(r.waivers?.[id]?.reason?.trim());
+}
+
+export function waivedCount(r: Pick<Report, "waivers">) {
+  return Object.values(r.waivers ?? {}).filter((w) => w?.reason?.trim()).length;
+}
+
+function parseNum(value: string) {
+  const n = Number(String(value).replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : null;
 }
 
 export interface Gap {
@@ -290,52 +325,79 @@ export function reportGaps(r: Report): Gap[] {
   };
 
   if (!r.filledBy) add("filledBy", "Who filled this sheet", "Quien llena esta hoja");
-  if (!r.onSite.length) add("onSite", "Who is on site today", "Quien esta en la obra hoy");
+  if (!r.onSite?.length) add("onSite", "Who is on site today", "Quien esta en la obra hoy");
   if (!r.substrateTemp) add("subTemp", "Substrate temperature", "Temperatura del sustrato");
   if (!r.ambientTemp) add("ambTemp", "Ambient temperature", "Temperatura ambiente");
   if (!r.surfacePrep) add("prep", "Substrate surface condition and prep", "Condicion y preparacion de la superficie");
   if (!r.substrateAcceptable) add("accept", "Substrate acceptable for air barrier?", "Sustrato aceptable para la barrera de aire?");
-  if (!r.materials[0]?.batch) add("rsBatch", "Rollershield batch / pail QR", "Lote o QR del balde Rollershield");
-  if (!r.materials[2]?.batch) add("sfBatch", "Superior Flash batch / pail QR", "Lote o QR del balde Superior Flash");
-  if (!r.loc1.timeStart) add("tStart", "Location 1 start time", "Ubicacion 1 hora de inicio");
-  if (!r.loc1.timeEnd) add("tEnd", "Location 1 finish time", "Ubicacion 1 hora de fin");
-  if (!r.loc1.wall) add("wall", "Location 1 wall (N/S/E/W)", "Ubicacion 1 muro (N/S/E/O)");
-  if (!r.fluidClean && r.fluidDefects.length === 0) {
+  if (!r.materials?.[0]?.batch) add("rsBatch", "Rollershield batch / pail QR", "Lote o QR del balde Rollershield");
+  if (!r.materials?.[2]?.batch) add("sfBatch", "Superior Flash batch / pail QR", "Lote o QR del balde Superior Flash");
+  if (!r.loc1?.timeStart) add("tStart", "Location 1 start time", "Ubicacion 1 hora de inicio");
+  if (!r.loc1?.timeEnd) add("tEnd", "Location 1 finish time", "Ubicacion 1 hora de fin");
+  if (!r.loc1?.wall) add("wall", "Location 1 wall (N/S/E/W)", "Ubicacion 1 muro (N/S/E/O)");
+  if (!r.fluidClean && (r.fluidDefects?.length ?? 0) === 0) {
     add("fluidVis", "Mark fluid membrane CLEAN or list defects", "Marque la membrana LIMPIO o liste defectos");
   }
-  if (!r.transClean && r.transDefects.length === 0) {
+  if (!r.transClean && (r.transDefects?.length ?? 0) === 0) {
     add("transVis", "Mark transitions CLEAN or list defects", "Marque transiciones LIMPIO o liste defectos");
-  }
-  const milsFilled = r.milTests.filter((m) => m.reading.trim()).length;
-  if (milsFilled === 0) add("mils", "At least one wet mil reading", "Al menos una lectura de mils humedos");
-  const adhFilled = r.adhesionTests.filter((a) => a.gauge.trim()).length;
-  if (adhFilled === 0 && !r.adhesionWhyNot) {
-    add("adh", "Adhesion results, or why not tested", "Resultados de adhesion, o por que no se probo");
   }
   if (!r.leftWithGc) add("gc", "Daily left with Gilbane / owner rep?", "Se dejo el reporte con Gilbane?");
   if (r.leftWithGc === "N" && !r.leftWithGcWhy) {
     add("gcWhy", "If not left with Gilbane, why", "Si no se dejo con Gilbane, por que");
   }
-  if (r.clayReady !== "Y") add("clay", "Clay ready to sign", "Clay listo para firmar");
-  if (!r.signatureDataUrl) add("sig", "Clay's Level 3 signature", "Firma Nivel 3 de Clay");
-  if (r.photos.length === 0) {
-    add("photos", "Add photos (substrate, mils, adhesion)", "Agregue fotos (sustrato, mils, adhesion)", false);
+  if ((r.photos?.length ?? 0) === 0) {
+    add("photos", "Add photos if you have them", "Agregue fotos si tiene", false);
   }
   return gaps;
 }
 
+/** Wet mils and adhesion are optional. Only flag a reading that was entered and is out of spec. */
+export function testWarnings(r: Report): Gap[] {
+  const warnings: Gap[] = [];
+  const target = parseNum(r.projectWetMils) ?? parseNum(r.mfrWetMils) ?? 15;
+  (r.milTests ?? []).forEach((m, i) => {
+    if (!m.reading?.trim()) return;
+    const n = parseNum(m.reading);
+    if (n == null || n >= target) return;
+    warnings.push({
+      id: `milLow-${i}`,
+      en: `Wet mil reading ${n} at ${m.location || "—"} is below the ${target} wet mil target`,
+      es: `Lectura ${n} mils en ${m.location || "—"} esta bajo la meta de ${target}`,
+      blocking: false,
+    });
+  });
+  (r.adhesionTests ?? []).forEach((a, i) => {
+    if (!a.gauge?.trim()) return;
+    const n = parseNum(a.gauge);
+    if (n == null || n >= 16) return;
+    warnings.push({
+      id: `adhLow-${i}`,
+      en: `Adhesion ${n} psi at ${a.location || "—"} is below 16 psi`,
+      es: `Adhesion ${n} psi en ${a.location || "—"} esta bajo 16 psi`,
+      blocking: false,
+    });
+  });
+  return warnings;
+}
+
 export function completeness(r: Report) {
   const gaps = reportGaps(r);
-  const blocking = gaps.filter((g) => g.blocking);
-  const required = 18;
+  const warnings = testWarnings(r);
+  const blocking = gaps.filter((g) => g.blocking && !isWaived(r, g.id));
+  const required = gaps.filter((g) => g.blocking).length;
   const missing = blocking.length;
   const done = Math.max(0, required - missing);
   return {
     gaps,
+    warnings,
     blocking,
-    pct: Math.round((done / required) * 100),
+    pct: required ? Math.round((done / required) * 100) : 100,
     ready: blocking.length === 0,
   };
+}
+
+export function canSubmit(r: Report) {
+  return completeness(r).ready;
 }
 
 export function onSiteLine(r: Report) {

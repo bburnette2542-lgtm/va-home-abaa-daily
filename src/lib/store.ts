@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { assignReportNumbersByDate, DAILIES_STORAGE_KEY, isSent, parsePersistedDailies, workflowStatus } from "./dailies";
+import { dailiesPersistStorage } from "./dailies-persist";
 import { completeness, newReport, type Lang, type Report } from "./report";
 
 interface AppState {
@@ -13,7 +15,12 @@ interface AppState {
   remove: (id: string) => void;
   get: (id: string) => Report | undefined;
   importOne: (report: Report) => string;
-  submit: (id: string) => void;
+  markSent: (id: string) => void;
+  markNotSent: (id: string) => void;
+}
+
+function keepReports(reports: Report[]) {
+  return assignReportNumbersByDate(reports);
 }
 
 export const useAppStore = create<AppState>()(
@@ -25,40 +32,75 @@ export const useAppStore = create<AppState>()(
       setLang: (lang) => set({ lang }),
       setHydrated: () => set({ hydrated: true }),
       create: () => {
-        const report = newReport(get().reports.length);
-        set({ reports: [report, ...get().reports] });
+        const report = newReport(0);
+        set({ reports: keepReports([report, ...get().reports]) });
         return report.id;
       },
       update: (id, patch) => {
         set({
-          reports: get().reports.map((r) => {
-            if (r.id !== id) return r;
-            const next = typeof patch === "function" ? patch(r) : { ...r, ...patch };
-            return { ...next, updatedAt: new Date().toISOString() };
-          }),
+          reports: keepReports(
+            get().reports.map((r) => {
+              if (r.id !== id) return r;
+              const next = typeof patch === "function" ? patch(r) : { ...r, ...patch };
+              return { ...next, id: r.id, date: next.date || r.date, updatedAt: new Date().toISOString() };
+            }),
+          ),
         });
       },
-      remove: (id) => set({ reports: get().reports.filter((r) => r.id !== id) }),
+      remove: (id) => set({ reports: keepReports(get().reports.filter((r) => r.id !== id)) }),
       get: (id) => get().reports.find((r) => r.id === id),
       importOne: (report) => {
         const id = report.id || `imp_${Date.now()}`;
-        const next: Report = { ...report, id, updatedAt: new Date().toISOString() };
-        set({ reports: [next, ...get().reports.filter((r) => r.id !== id)] });
+        const date = report.date;
+        const next: Report = {
+          ...report,
+          id,
+          date,
+          sentAt: typeof report.sentAt === "string" ? report.sentAt : "",
+          updatedAt: new Date().toISOString(),
+        };
+        set({ reports: keepReports([next, ...get().reports.filter((r) => r.id !== id)]) });
         return id;
       },
-      submit: (id) => {
+      markSent: (id) => {
+        const now = new Date().toISOString();
         set({
-          reports: get().reports.map((r) =>
-            r.id === id
-              ? { ...r, submittedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-              : r,
+          reports: keepReports(
+            get().reports.map((r) =>
+              r.id === id
+                ? {
+                    ...r,
+                    sentAt: now,
+                    submittedAt: now,
+                    updatedAt: now,
+                    officeStatus: "waiting_signature",
+                  }
+                : r,
+            ),
+          ),
+        });
+      },
+      markNotSent: (id) => {
+        set({
+          reports: keepReports(
+            get().reports.map((r) =>
+              r.id === id
+                ? { ...r, sentAt: "", officeStatus: "draft", updatedAt: new Date().toISOString() }
+                : r,
+            ),
           ),
         });
       },
     }),
     {
-      name: "va-home-abaa-dailies",
+      name: DAILIES_STORAGE_KEY,
+      storage: dailiesPersistStorage(),
       partialize: (s) => ({ lang: s.lang, reports: s.reports }),
+      merge: (persisted, current) => {
+        const next = parsePersistedDailies(persisted);
+        if (!next) return current;
+        return { ...current, lang: next.lang, reports: next.reports };
+      },
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();
       },
@@ -67,8 +109,10 @@ export const useAppStore = create<AppState>()(
 );
 
 export function reportStatus(r: Report) {
+  const flow = workflowStatus(r);
+  if (flow !== "draft") return "submitted" as const;
   const c = completeness(r);
-  if (r.submittedAt) return "submitted" as const;
+  if (isSent(r)) return "submitted" as const;
   if (r.signatureDataUrl && r.clayReady === "Y" && r.leftWithGc === "Y") return "signed" as const;
   if (c.ready) return "ready" as const;
   return "draft" as const;

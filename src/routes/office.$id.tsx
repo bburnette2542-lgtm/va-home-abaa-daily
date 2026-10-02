@@ -1,25 +1,53 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, Mail } from "lucide-react";
+import { Check } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { BootScreen } from "@/components/daily/boot";
 import { OfficialForm } from "@/components/daily/official-form";
 import { Button } from "@/components/ui";
+import { statusLabel, workflowStatus } from "@/lib/dailies";
+import { markFiledFn, uploadSignedPdfFn } from "@/lib/dailies.functions";
 import { t } from "@/lib/i18n";
 import { composedComments } from "@/lib/report";
-import { OFFICE, downloadJson, mailtoBernieUrl } from "@/lib/share";
+import { OFFICE, downloadJson } from "@/lib/share";
 import { useAppStore } from "@/lib/store";
-import { useHydrated } from "@/lib/use-hydrated";
+import { useLocalOrOfficeDaily } from "@/lib/use-remote-daily";
 import { formatDisplayDate } from "@/lib/utils";
 
 export const Route = createFileRoute("/office/$id")({ component: OfficeReceipt });
 
+function readFileBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      const comma = text.indexOf(",");
+      resolve(comma >= 0 ? text.slice(comma + 1) : text);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 function OfficeReceipt() {
   const { id } = Route.useParams();
   const lang = useAppStore((s) => s.lang);
-  const report = useAppStore((s) => s.reports.find((r) => r.id === id));
-  const hydrated = useHydrated();
+  const { report, hydrated, loading, needOffice, missing } = useLocalOrOfficeDaily(id);
+  const [status, setStatus] = useState<string>("");
+  const [signedName, setSignedName] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  if (!hydrated) return <BootScreen />;
-  if (!report) {
+  if (!hydrated || loading) return <BootScreen />;
+  if (needOffice) {
+    return (
+      <main className="min-h-dvh bg-paper p-8 text-center">
+        <Link to="/office" search={{ next: `/office/${id}` }} className="text-navy underline">
+          {t(lang, "office")}
+        </Link>
+      </main>
+    );
+  }
+  if (!report || missing) {
     return (
       <main className="min-h-dvh bg-paper p-8 text-center">
         Daily not found.{" "}
@@ -28,6 +56,41 @@ function OfficeReceipt() {
         </Link>
       </main>
     );
+  }
+
+  const daily = report;
+  const flow = (status || workflowStatus(daily)) as ReturnType<typeof workflowStatus>;
+  const pdfName = signedName || daily.signedPdfName;
+
+  async function onUpload(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const dataBase64 = await readFileBase64(file);
+      const result = await uploadSignedPdfFn({
+        data: { id: daily.id, filename: file.name, dataBase64 },
+      });
+      setStatus(result.status || "signed");
+      setSignedName(result.name || file.name);
+      toast.success("Signed PDF saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not upload");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onFile() {
+    setBusy(true);
+    try {
+      const result = await markFiledFn({ data: { id: daily.id } });
+      setStatus(result.status || "filed");
+      toast.success("Filed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not file");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -41,6 +104,9 @@ function OfficeReceipt() {
             <Link to="/office" className="text-sm font-medium text-navy">
               {t(lang, "office")}
             </Link>
+            <Link to="/print/$id" params={{ id: daily.id }} className="text-sm font-medium text-navy">
+              {t(lang, "print")}
+            </Link>
           </div>
           <div className="flex items-start gap-3">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-ok text-ok-fg">
@@ -52,37 +118,57 @@ function OfficeReceipt() {
                 {OFFICE.name} · {OFFICE.email}
               </p>
               <p className="text-sm text-ink">
-                {formatDisplayDate(report.date)} · Report #{report.jobSiteReportNo} · {report.filledBy}
+                {formatDisplayDate(daily.date)} · Report #{daily.jobSiteReportNo}
+                {daily.priorReportNo ? ` (old #${daily.priorReportNo})` : ""} · {daily.filledBy}
               </p>
               <p className="text-xs text-muted">
-                {report.submittedAt ? new Date(report.submittedAt).toLocaleString() : ""} · {report.photos.length}{" "}
-                photos
+                {statusLabel(flow)} · {daily.photos.length} photos
               </p>
             </div>
           </div>
-          {report.sample ? (
+          {daily.sample ? (
             <p className="mt-3 rounded-md bg-warn px-3 py-2 text-sm font-medium text-paper">
               {t(lang, "sampleBanner")}
             </p>
           ) : null}
           <p className="mt-3 text-sm text-muted">{t(lang, "receiptNote")}</p>
-          <p className="mt-2 text-sm text-ink">{composedComments(report)}</p>
+          <p className="mt-2 text-sm text-ink">{composedComments(daily)}</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <a
-              href={mailtoBernieUrl(report)}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-ok px-4 text-sm font-medium text-ok-fg"
-            >
-              <Mail className="size-4" />
-              {t(lang, "emailAgain")}
-            </a>
-            <Button type="button" variant="secondary" onClick={() => downloadJson(report)}>
+            <Button type="button" variant="secondary" onClick={() => downloadJson(daily)}>
               {t(lang, "export")}
             </Button>
+            <label className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-md bg-navy px-4 text-sm font-medium text-paper">
+              {busy ? t(lang, "sending") : t(lang, "uploadSigned")}
+              <input
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                disabled={busy}
+                onChange={(e) => {
+                  void onUpload(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {pdfName || daily.signedPdfPath ? (
+              <a
+                href={`/api/office/signed/${daily.id}`}
+                className="inline-flex min-h-12 items-center justify-center rounded-md border border-line px-4 text-sm font-medium text-navy"
+              >
+                {t(lang, "signedPdf")}
+                {pdfName ? ` · ${pdfName}` : ""}
+              </a>
+            ) : null}
+            {flow === "signed" ? (
+              <Button type="button" variant="ok" disabled={busy} onClick={() => void onFile()}>
+                {t(lang, "markFiled")}
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
       <div className="px-3 py-6">
-        <OfficialForm report={report} />
+        <OfficialForm report={daily} />
       </div>
     </div>
   );
