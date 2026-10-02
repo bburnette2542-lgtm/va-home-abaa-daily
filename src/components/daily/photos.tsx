@@ -19,7 +19,6 @@ export function PhotoCapture({
   onChange: (photos: Photo[]) => void;
 }) {
   const camRef = useRef<HTMLInputElement>(null);
-  const libRef = useRef<HTMLInputElement>(null);
 
   async function ingest(files: FileList | null) {
     if (!files?.length) return;
@@ -52,27 +51,26 @@ export function PhotoCapture({
           <Camera className="size-4" />
           {t(lang, "takePhoto")}
         </Button>
-        <Button type="button" variant="secondary" onClick={() => libRef.current?.click()}>
+        <label className="relative inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-line bg-paper-2 px-4 text-sm font-medium text-ink">
           <ImagePlus className="size-4" />
           {t(lang, "fromLibrary")}
-        </Button>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="absolute inset-0 cursor-pointer opacity-0"
+            onChange={(e) => {
+              void ingest(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </label>
       </div>
       <input
         ref={camRef}
         type="file"
         accept="image/*"
         capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          void ingest(e.target.files);
-          e.target.value = "";
-        }}
-      />
-      <input
-        ref={libRef}
-        type="file"
-        accept="image/*"
-        multiple
         className="hidden"
         onChange={(e) => {
           void ingest(e.target.files);
