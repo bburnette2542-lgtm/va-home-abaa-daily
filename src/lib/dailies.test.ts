@@ -10,6 +10,7 @@ import {
   filterBlobPathsByDateRange,
   isSent,
   officeEmailText,
+  officeReceiptNoteKey,
   officeSummaryRow,
   parseDailyBlobPath,
   parsePersistedDailies,
@@ -22,6 +23,7 @@ import {
 } from "./dailies.ts";
 import { dailiesPersistStorage, resetPersistGuardForTests } from "./dailies-persist.ts";
 import { officeCookieValid, officeCookieValue, passcodeMatches } from "./office-pass.ts";
+import { t } from "./i18n.ts";
 import { canSubmit, completeness, newReport, reportGaps, testWarnings, type Report } from "./report.ts";
 
 const OLD_DAILY_A = {
@@ -503,6 +505,24 @@ describe("submit overwrite guard", () => {
           email: async () => undefined,
         }),
       /different daily/,
+    );
+  });
+});
+
+describe("office receipt banner", () => {
+  it("uses emailed copy only after sentAt or waiting_signature or later", () => {
+    assert.equal(officeReceiptNoteKey({ sentAt: "", officeStatus: "draft" }), "receiptNoteUnsent");
+    assert.equal(officeReceiptNoteKey(OLD_DAILY_A), "receiptNoteUnsent");
+    assert.equal(
+      officeReceiptNoteKey({ sentAt: "2026-08-31T18:41:00.000Z", officeStatus: "waiting_signature" }),
+      "receiptNote",
+    );
+    assert.equal(officeReceiptNoteKey({ officeStatus: "signed", signedPdfPath: "signed/x.pdf" }), "receiptNote");
+    assert.equal(officeReceiptNoteKey({ officeStatus: "filed" }), "receiptNote");
+    assert.equal(t("en", "receiptNoteUnsent"), "Saved on the server. Not emailed yet.");
+    assert.equal(
+      t("en", "receiptNote"),
+      "Saved on the server and emailed to bernie@jamesriverexteriors.com.",
     );
   });
 });

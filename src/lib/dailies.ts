@@ -33,6 +33,12 @@ export function sentStatus(report: Pick<Report, "sentAt" | "officeStatus" | "sig
   return isSent(report) ? "sent" : "not_sent";
 }
 
+export function officeReceiptNoteKey(
+  report: Pick<Report, "sentAt" | "officeStatus" | "signedPdfPath">,
+): "receiptNote" | "receiptNoteUnsent" {
+  return isSent(report) ? "receiptNote" : "receiptNoteUnsent";
+}
+
 export function statusLabel(status: OfficeStatus) {
   if (status === "filed") return "Filed";
   if (status === "signed") return "Signed";
