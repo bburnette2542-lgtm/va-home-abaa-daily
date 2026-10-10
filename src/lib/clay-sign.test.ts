@@ -5,18 +5,23 @@ import { PDFDocument } from "pdf-lib";
 import {
   applyClaySignature,
   assertClaySignInput,
+  clayFormDate,
   claySignFixtureDaily,
   claySignLink,
   claySignedEmailSubject,
   claySignedPdfFilename,
   CLAY_CERT_NUMBER,
+  CLAY_FULL_NAME,
+  CLAY_UNSIGNED_HINT,
   formatSignedWhen,
+  isClaySignedDaily,
   isUnsignedForClay,
   sortDailiesForClay,
   TINY_PNG,
 } from "./clay-sign.ts";
 import { newReport } from "./report.ts";
 import { buildOfficialSignedPdf } from "./signed-pdf.ts";
+import { todayISO } from "./utils.ts";
 
 describe("unsigned list for Clay", () => {
   it("keeps drafts and waiting dailies, drops signed and filed", () => {
@@ -90,7 +95,35 @@ describe("Clay link and email copy", () => {
     const report = { date: "2026-10-09", jobSiteReportNo: "1" };
     assert.equal(claySignedPdfFilename(report), "ABAA-VA-Home-2026-10-09-R1-signed.pdf");
     assert.equal(claySignedEmailSubject(report), "Clay signed VA Home daily 2026-10-09 report 1");
-    assert.match(formatSignedWhen("2026-10-09T20:12:00.000Z"), /Signed /);
+    assert.equal(formatSignedWhen("2026-10-10T00:36:00.000Z"), "Signed Oct 9, 2026 at 8:36 PM");
+  });
+});
+
+describe("America/New_York dates", () => {
+  it("keeps 8:36 PM ET on Friday Oct 9 as 2026-10-09, not the UTC next day", () => {
+    assert.equal(todayISO(new Date("2026-10-10T00:36:00.000Z")), "2026-10-09");
+    assert.equal(todayISO(new Date("2026-10-09T16:00:00.000Z")), "2026-10-09");
+    assert.equal(todayISO(new Date("2026-10-10T04:00:00.000Z")), "2026-10-10");
+    assert.equal(clayFormDate({ signatureDate: "", signedAt: "2026-10-10T00:36:00.000Z" }), "2026-10-09");
+    assert.equal(clayFormDate({ signatureDate: "2026-10-09", signedAt: "2026-10-10T04:00:00.000Z" }), "2026-10-09");
+  });
+});
+
+describe("print page signature block", () => {
+  it("keeps the Clay warning until the daily is signed", () => {
+    const waiting = claySignFixtureDaily();
+    assert.equal(isClaySignedDaily(waiting), false);
+    assert.match(CLAY_UNSIGNED_HINT, /do not sign as Clay unless you are Clay/);
+    const signed = applyClaySignature(waiting, {
+      signatureDataUrl: TINY_PNG,
+      signatureDate: "2026-10-09",
+      signedBy: "Clay",
+      signedAt: "2026-10-10T00:36:00.000Z",
+    });
+    assert.equal(isClaySignedDaily(signed), true);
+    assert.equal(clayFormDate(signed), "2026-10-09");
+    assert.equal(CLAY_FULL_NAME, "Clay Butner");
+    assert.equal(signed.certNumber, "306906");
   });
 });
 
@@ -111,16 +144,19 @@ describe("signed official PDF", () => {
 
     const pdf = await PDFDocument.load(bytes);
     assert.equal(pdf.getPageCount(), 3);
-    const text = pdfLiteralText(bytes);
+    assert.ok(bytes.byteLength > 200_000, "signed PDF should keep the official blank form");
+    const text = pdfLiteralText(bytes).replace(/\x00/g, "");
+    assert.match(text, /Virginia Home/);
     assert.match(text, /16/);
     assert.match(text, /A-3 east/);
     assert.match(text, /RS-24081/);
     assert.match(text, /SF-1182/);
     assert.match(text, /185/);
-    assert.match(text, /Yes/);
     assert.match(text, /2026-10-10/);
     assert.match(text, /306906/);
+    assert.match(text, /Clay Butner/);
     assert.doesNotMatch(text, /DRAFT/);
+    assert.doesNotMatch(text, /do not sign as Clay/);
   });
 });
 

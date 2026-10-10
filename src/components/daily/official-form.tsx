@@ -1,5 +1,12 @@
 import { AbaaMark } from "@/components/abaa-mark";
 import {
+  clayFormDate,
+  CLAY_CERT_NUMBER,
+  CLAY_FULL_NAME,
+  CLAY_UNSIGNED_HINT,
+  isClaySignedDaily,
+} from "@/lib/clay-sign";
+import {
   FLUID_DEFECTS,
   TRANS_DEFECTS,
   composedComments,
@@ -386,7 +393,9 @@ function Page3({ report, watermark }: { report: Report; watermark?: boolean }) {
       <p className="mb-8 min-h-10 text-[12px]">IF NO, WHY? {report.leftWithGcWhy}</p>
       <div className="mt-8 grid grid-cols-3 items-end gap-4">
         <div>
-          <p className="min-h-10 border-b border-ink">{report.signatureDate}</p>
+          <p className="min-h-10 border-b border-ink">
+            {isClaySignedDaily(report) ? clayFormDate(report) : report.signatureDate}
+          </p>
           <p className="mt-1 text-[10px] uppercase">Date</p>
         </div>
         <div>
@@ -396,10 +405,14 @@ function Page3({ report, watermark }: { report: Report; watermark?: boolean }) {
             <p className="min-h-10 border-b border-ink" />
           )}
           <p className="mt-1 text-[10px] uppercase">Level 2/3 Certified Installer Signature</p>
-          <p className="text-[10px]">Clay Butner — do not sign as Clay unless you are Clay</p>
+          <p className="text-[10px]">
+            {isClaySignedDaily(report) ? CLAY_FULL_NAME : CLAY_UNSIGNED_HINT}
+          </p>
         </div>
         <div>
-          <p className="min-h-10 border-b border-ink text-right font-mono text-lg">{report.certNumber}</p>
+          <p className="min-h-10 border-b border-ink text-right font-mono text-lg">
+            {report.certNumber || CLAY_CERT_NUMBER}
+          </p>
           <p className="mt-1 text-[10px] uppercase">Certification #</p>
         </div>
       </div>

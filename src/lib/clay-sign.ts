@@ -1,9 +1,12 @@
 import { signedPdfPath, workflowStatus } from "./dailies.ts";
 import { newReport, type Report } from "./report.ts";
+import { APP_TZ, todayISO } from "./utils.ts";
 
 export const CLAY_CERT_NUMBER = "306906";
 export const CLAY_DEFAULT_NAME = "Clay";
+export const CLAY_FULL_NAME = "Clay Butner";
 export const CLAY_TOKEN_BLOB = "signing/clay-token.txt";
+export const CLAY_UNSIGNED_HINT = "Clay Butner — do not sign as Clay unless you are Clay";
 
 export type ClaySignInput = {
   signatureDataUrl: string;
@@ -86,16 +89,32 @@ export function applyClaySignature(
   };
 }
 
+export function isClaySignedDaily(
+  report: Pick<Report, "officeStatus" | "sentAt" | "signedPdfPath" | "signedAt">,
+) {
+  const status = workflowStatus(report);
+  return status === "signed" || status === "filed";
+}
+
+/** Calendar date for the DATE line — stored YYYY-MM-DD, captured in America/New_York. */
+export function clayFormDate(report: Pick<Report, "signatureDate" | "signedAt">) {
+  if (report.signatureDate?.trim()) return report.signatureDate.trim();
+  if (report.signedAt) return todayISO(new Date(report.signedAt));
+  return "";
+}
+
 export function formatSignedWhen(iso: string) {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const date = d.toLocaleDateString("en-US", {
+    timeZone: APP_TZ,
     month: "short",
     day: "numeric",
     year: "numeric",
   });
   const time = d.toLocaleTimeString("en-US", {
+    timeZone: APP_TZ,
     hour: "numeric",
     minute: "2-digit",
   });
