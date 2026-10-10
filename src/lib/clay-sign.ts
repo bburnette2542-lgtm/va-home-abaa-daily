@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { signedPdfPath, workflowStatus } from "./dailies.ts";
 import { newReport, type Report } from "./report.ts";
 
@@ -29,10 +28,6 @@ export function sortDailiesForClay<T extends Pick<Report, "date" | "jobSiteRepor
 
 export function claySignLink(origin: string, token: string) {
   return `${origin.replace(/\/$/, "")}/sign/${encodeURIComponent(token)}`;
-}
-
-export function newClaySignToken() {
-  return randomBytes(32).toString("hex");
 }
 
 export function claySignedPdfFilename(report: Pick<Report, "date" | "jobSiteReportNo">) {

@@ -1,16 +1,15 @@
 import { del, get, list, put } from "@vercel/blob";
+import { randomBytes } from "node:crypto";
 import { getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
 import {
   applyClaySignature,
   assertClaySignInput,
-  claySignFixtureDaily,
   claySignLink,
   claySignedEmailSubject,
   claySignedEmailText,
   claySignedPdfFilename,
   CLAY_TOKEN_BLOB,
   isUnsignedForClay,
-  newClaySignToken,
   sortDailiesForClay,
   type ClaySignInput,
 } from "./clay-sign";
@@ -390,7 +389,7 @@ export async function getOrCreateClaySignToken() {
   requireOffice();
   const existing = await readClaySignToken();
   if (existing) return existing;
-  const token = newClaySignToken();
+  const token = randomBytes(32).toString("hex");
   await put(CLAY_TOKEN_BLOB, token, {
     access: "private",
     addRandomSuffix: false,
@@ -413,18 +412,8 @@ export async function assertClayToken(token: string) {
   }
 }
 
-function fixtureUnsignedDailies() {
-  const first = claySignFixtureDaily("clay-sign-fixture-1");
-  const second = claySignFixtureDaily("clay-sign-fixture-2");
-  second.date = "2026-10-10";
-  second.jobSiteReportNo = "2";
-  second.loc1 = { ...second.loc1, wall: "N", onGrid: "C" };
-  return sortDailiesForClay([first, second]);
-}
-
 export async function listUnsignedForClay(token: string): Promise<Report[]> {
   await assertClayToken(token);
-  if (process.env.CLAY_SIGN_FIXTURE === "1") return fixtureUnsignedDailies();
   const all = await loadAllDailies();
   return sortDailiesForClay(all.filter(isUnsignedForClay));
 }

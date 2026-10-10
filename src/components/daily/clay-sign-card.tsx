@@ -115,7 +115,7 @@ export function ClaySignatureCard({
         <p className="mb-3 text-[14px] text-[#c8c8c8]">Sign with your finger in the box</p>
         <canvas
           ref={pad.canvasRef}
-          className="h-36 w-full touch-none rounded-xl border border-dashed border-[#cfcfcf] bg-white"
+          className="h-36 w-full touch-none rounded-md border-2 border-dashed border-[#b8b8b8] bg-white"
           onPointerDown={pad.start}
           onPointerMove={pad.move}
           onPointerUp={pad.end}

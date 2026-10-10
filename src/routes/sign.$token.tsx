@@ -118,7 +118,9 @@ function ClaySignPage() {
                     </button>
                     {open ? (
                       <div className="mt-3 overflow-x-auto rounded-xl bg-white">
-                        <OfficialForm report={report} watermark={false} />
+                        <div className="min-w-[8.5in]">
+                          <OfficialForm report={report} watermark={false} />
+                        </div>
                       </div>
                     ) : null}
                   </article>
