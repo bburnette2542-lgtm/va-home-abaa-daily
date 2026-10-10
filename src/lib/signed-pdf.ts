@@ -1,7 +1,19 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFForm } from "pdf-lib";
+import { deflateSync, inflateSync } from "node:zlib";
+import {
+  PDFDocument,
+  StandardFonts,
+  clip,
+  degrees,
+  endPath,
+  popGraphicsState,
+  pushGraphicsState,
+  rectangle,
+  rgb,
+  type PDFForm,
+} from "pdf-lib";
 import { clayFormDate, CLAY_CERT_NUMBER, CLAY_FULL_NAME } from "./clay-sign.ts";
 import { composedComments, FLUID_DEFECTS, TRANS_DEFECTS, type Report } from "./report.ts";
 
@@ -86,11 +98,165 @@ function ynBoxes(form: PDFForm, yesName: string, noName: string, value: string) 
   check(form, noName, value === "N");
 }
 
+function pngCrc(buf: Buffer) {
+  let c = ~0;
+  for (const byte of buf) {
+    c ^= byte;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  }
+  return ~c >>> 0;
+}
+
+function pngChunk(type: string, data: Buffer) {
+  const typeBuf = Buffer.from(type);
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(pngCrc(Buffer.concat([typeBuf, data])));
+  return Buffer.concat([len, typeBuf, data, crc]);
+}
+
+function paeth(a: number, b: number, c: number) {
+  const p = a + b - c;
+  const pa = Math.abs(p - a);
+  const pb = Math.abs(p - b);
+  const pc = Math.abs(p - c);
+  if (pa <= pb && pa <= pc) return a;
+  if (pb <= pc) return b;
+  return c;
+}
+
+function unfilterRow(filter: number, raw: Buffer, prev: Buffer, bpp: number) {
+  const out = Buffer.alloc(raw.length);
+  for (let i = 0; i < raw.length; i++) {
+    const left = i >= bpp ? out[i - bpp] : 0;
+    const up = prev[i];
+    const upLeft = i >= bpp ? prev[i - bpp] : 0;
+    let pred = 0;
+    if (filter === 1) pred = left;
+    else if (filter === 2) pred = up;
+    else if (filter === 3) pred = (left + up) >> 1;
+    else if (filter === 4) pred = paeth(left, up, upLeft);
+    out[i] = filter === 0 ? raw[i] : (raw[i] + pred) & 255;
+  }
+  return out;
+}
+
+/** Drop the white/cream pad fill so official form text under the ink stays readable. */
+export function transparentInkPng(pngBytes: Uint8Array): Uint8Array {
+  const buf = Buffer.from(pngBytes);
+  if (buf.length < 16 || buf.subarray(0, 8).toString("binary") !== "\x89PNG\r\n\x1a\n") return pngBytes;
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  const idats: Buffer[] = [];
+  while (offset + 12 <= buf.length) {
+    const len = buf.readUInt32BE(offset);
+    const type = buf.subarray(offset + 4, offset + 8).toString("ascii");
+    const data = buf.subarray(offset + 8, offset + 8 + len);
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8] ?? 0;
+      colorType = data[9] ?? 0;
+    } else if (type === "IDAT") {
+      idats.push(Buffer.from(data));
+    } else if (type === "IEND") {
+      break;
+    }
+    offset += 12 + len;
+  }
+  if (!width || !height || bitDepth !== 8 || (colorType !== 2 && colorType !== 6 && colorType !== 0)) {
+    return pngBytes;
+  }
+  const bpp = colorType === 6 ? 4 : colorType === 2 ? 3 : 1;
+  const inflated = inflateSync(Buffer.concat(idats));
+  const stride = width * bpp;
+  const rgba = Buffer.alloc(width * height * 4);
+  let i = 0;
+  let prev = Buffer.alloc(stride);
+  for (let y = 0; y < height; y++) {
+    const filter = inflated[i++] ?? 0;
+    const raw = Buffer.from(inflated.subarray(i, i + stride));
+    i += stride;
+    const row = unfilterRow(filter, raw, prev, bpp);
+    prev = row;
+    for (let x = 0; x < width; x++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 255;
+      if (colorType === 0) {
+        r = g = b = row[x] ?? 0;
+      } else if (colorType === 2) {
+        r = row[x * 3] ?? 0;
+        g = row[x * 3 + 1] ?? 0;
+        b = row[x * 3 + 2] ?? 0;
+      } else {
+        r = row[x * 4] ?? 0;
+        g = row[x * 4 + 1] ?? 0;
+        b = row[x * 4 + 2] ?? 0;
+        a = row[x * 4 + 3] ?? 255;
+      }
+      const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (luma > 220) a = 0;
+      else if (luma > 180) a = Math.round(((220 - luma) / 40) * a);
+      const o = (y * width + x) * 4;
+      rgba[o] = r;
+      rgba[o + 1] = g;
+      rgba[o + 2] = b;
+      rgba[o + 3] = a;
+    }
+  }
+
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if ((rgba[(y * width + x) * 4 + 3] ?? 0) < 16) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+  if (maxX < 0) return pngBytes;
+  const pad = 4;
+  minX = Math.max(0, minX - pad);
+  minY = Math.max(0, minY - pad);
+  maxX = Math.min(width - 1, maxX + pad);
+  maxY = Math.min(height - 1, maxY + pad);
+  const cw = maxX - minX + 1;
+  const ch = maxY - minY + 1;
+  const cropped = Buffer.alloc(ch * (cw * 4 + 1));
+  for (let y = 0; y < ch; y++) {
+    const dest = y * (cw * 4 + 1);
+    cropped[dest] = 0;
+    rgba.copy(cropped, dest + 1, ((minY + y) * width + minX) * 4, ((minY + y) * width + minX + cw) * 4);
+  }
+
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(cw, 0);
+  ihdr.writeUInt32BE(ch, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(cropped)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
 async function embedSignature(doc: PDFDocument, dataUrl: string) {
   const match = dataUrl.match(/^data:image\/(png|jpeg|jpg);base64,(.+)$/i);
   if (!match) return null;
   const bytes = Buffer.from(match[2], "base64");
-  if (match[1].toLowerCase() === "png") return doc.embedPng(bytes);
+  if (match[1].toLowerCase() === "png") return doc.embedPng(transparentInkPng(bytes));
   return doc.embedJpg(bytes);
 }
 
@@ -310,9 +476,9 @@ function signatureImageBox(form: PDFForm) {
     if (rect) {
       return {
         x: rect.x,
-        y: rect.y - 8,
+        y: rect.y + 1,
         width: rect.width,
-        height: 32,
+        height: 26,
         nameX: rect.x,
         nameY: Math.max(rect.y - 22, 300),
       };
@@ -320,7 +486,7 @@ function signatureImageBox(form: PDFForm) {
   } catch {
     // official field name stays as ABAA shipped it
   }
-  return { x: 324, y: 316, width: 176, height: 32, nameX: 324, nameY: 312 };
+  return { x: 324, y: 325.5, width: 176, height: 26, nameX: 324, nameY: 302 };
 }
 
 export async function buildOfficialSignedPdf(report: Report): Promise<Uint8Array> {
@@ -336,12 +502,16 @@ export async function buildOfficialSignedPdf(report: Report): Promise<Uint8Array
   const page3 = doc.getPage(2);
   if (sig) {
     const scale = Math.min(box.width / sig.width, box.height / sig.height);
+    const width = sig.width * scale;
+    const height = sig.height * scale;
+    page3.pushOperators(pushGraphicsState(), rectangle(box.x, box.y, box.width, box.height), clip(), endPath());
     page3.drawImage(sig, {
       x: box.x,
       y: box.y,
-      width: sig.width * scale,
-      height: sig.height * scale,
+      width,
+      height,
     });
+    page3.pushOperators(popGraphicsState());
   }
   page3.drawText(CLAY_FULL_NAME, {
     x: box.nameX,

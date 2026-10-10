@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { inflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 import { describe, it } from "node:test";
 import { PDFDocument } from "pdf-lib";
 import {
@@ -20,7 +20,7 @@ import {
   TINY_PNG,
 } from "./clay-sign.ts";
 import { newReport } from "./report.ts";
-import { buildOfficialSignedPdf } from "./signed-pdf.ts";
+import { buildOfficialSignedPdf, transparentInkPng } from "./signed-pdf.ts";
 import { todayISO } from "./utils.ts";
 
 describe("unsigned list for Clay", () => {
@@ -124,6 +124,60 @@ describe("print page signature block", () => {
     assert.equal(clayFormDate(signed), "2026-10-09");
     assert.equal(CLAY_FULL_NAME, "Clay Butner");
     assert.equal(signed.certNumber, "306906");
+  });
+});
+
+describe("signature ink PNG", () => {
+  it("makes the white pad transparent and keeps the dark stroke", () => {
+    const w = 2;
+    const h = 1;
+    const raw = Buffer.from([0, 20, 20, 20, 255, 255, 255]);
+    const ihdr = Buffer.alloc(13);
+    ihdr.writeUInt32BE(w, 0);
+    ihdr.writeUInt32BE(h, 4);
+    ihdr[8] = 8;
+    ihdr[9] = 2;
+    const crc32 = (buf: Buffer) => {
+      let c = ~0;
+      for (const byte of buf) {
+        c ^= byte;
+        for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      }
+      return ~c >>> 0;
+    };
+    const chunk = (type: string, data: Buffer) => {
+      const typeBuf = Buffer.from(type);
+      const len = Buffer.alloc(4);
+      len.writeUInt32BE(data.length);
+      const crc = Buffer.alloc(4);
+      crc.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])));
+      return Buffer.concat([len, typeBuf, data, crc]);
+    };
+    const png = Buffer.concat([
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      chunk("IHDR", ihdr),
+      chunk("IDAT", deflateSync(raw)),
+      chunk("IEND", Buffer.alloc(0)),
+    ]);
+    const out = Buffer.from(transparentInkPng(png));
+    assert.notEqual(out.length, 0);
+    const inflated = inflateSync(
+      (() => {
+        let offset = 8;
+        const parts: Buffer[] = [];
+        while (offset + 12 <= out.length) {
+          const len = out.readUInt32BE(offset);
+          const type = out.subarray(offset + 4, offset + 8).toString("ascii");
+          if (type === "IDAT") parts.push(out.subarray(offset + 8, offset + 8 + len));
+          if (type === "IEND") break;
+          offset += 12 + len;
+        }
+        return Buffer.concat(parts);
+      })(),
+    );
+    assert.equal(inflated[1], 20);
+    assert.equal(inflated[4], 255);
+    assert.equal(inflated[8], 0);
   });
 });
 
