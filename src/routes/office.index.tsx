@@ -3,7 +3,7 @@ import { Inbox } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BootScreen } from "@/components/daily/boot";
 import { Button, Card, Field, Input } from "@/components/ui";
-import { listOfficeDailiesFn, voidOfficeDailyFn } from "@/lib/dailies.functions";
+import { claySignLinkFn, listOfficeDailiesFn, voidOfficeDailyFn } from "@/lib/dailies.functions";
 import { statusLabel, type DailySummary } from "@/lib/dailies";
 import { t } from "@/lib/i18n";
 import type { OfficeStatus } from "@/lib/report";
@@ -30,6 +30,8 @@ function OfficeInbox() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [voiding, setVoiding] = useState("");
+  const [clayUrl, setClayUrl] = useState("");
+  const [copied, setCopied] = useState(false);
 
   async function search(nextFrom = from, nextTo = to, nextStatus = status) {
     setBusy(true);
@@ -63,9 +65,23 @@ function OfficeInbox() {
 
   useEffect(() => {
     void search("", "", "");
+    void claySignLinkFn()
+      .then((r) => setClayUrl(r.url))
+      .catch(() => setClayUrl(""));
     // First paint: every daily on the server.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function copyClayLink() {
+    if (!clayUrl) return;
+    try {
+      await navigator.clipboard.writeText(clayUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   if (rows === null && !error) return <BootScreen />;
 
@@ -80,6 +96,16 @@ function OfficeInbox() {
           {OFFICE.name} · {OFFICE.email}
         </p>
         <p className="mt-1 text-sm text-muted">{t(lang, "receiptNote")}</p>
+        {clayUrl ? (
+          <div className="mt-4 rounded-md border border-line bg-fill px-3 py-3">
+            <p className="text-sm font-medium text-navy">{t(lang, "clayLink")}</p>
+            <p className="mt-1 text-xs text-muted">{t(lang, "clayLinkHint")}</p>
+            <p className="mt-2 break-all text-sm text-ink">{clayUrl}</p>
+            <Button type="button" variant="secondary" className="mt-3 w-full" onClick={() => void copyClayLink()}>
+              {copied ? t(lang, "copiedLink") : t(lang, "copyLink")}
+            </Button>
+          </div>
+        ) : null}
         <form
           className="mt-4 grid grid-cols-2 gap-3"
           onSubmit={(e) => {
@@ -142,12 +168,19 @@ function OfficeInbox() {
                   {r.sample ? " · SAMPLE" : ""}
                 </p>
                 <p className="text-xs text-muted">
-                  {statusLabel(r.status)} · {r.filledBy || "—"} · {r.photoCount} photos
+                  {statusLabel(r.status)} · {r.signed ? t(lang, "signed") : t(lang, "unsigned")}
+                  {r.signed && r.signedBy ? ` · ${r.signedBy}` : ""} · {r.filledBy || "—"} · {r.photoCount} photos
                   {r.waivedCount ? ` · ${r.waivedCount} waived` : ""}
-                  {r.signed ? " · signed PDF" : ""}
                 </p>
               </Link>
               <div className="mt-3 flex flex-wrap gap-3 text-sm">
+                {r.signed ? (
+                  <a href={`/api/office/signed/${r.id}`} className="font-medium text-navy">
+                    {t(lang, "downloadSigned")}
+                  </a>
+                ) : (
+                  <span className="font-medium text-muted">{t(lang, "unsigned")}</span>
+                )}
                 <Link to="/daily/$id" params={{ id: r.id }} className="font-medium text-navy">
                   Form
                 </Link>

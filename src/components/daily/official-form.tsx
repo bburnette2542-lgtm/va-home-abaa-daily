@@ -1,5 +1,12 @@
 import { AbaaMark } from "@/components/abaa-mark";
 import {
+  clayFormDate,
+  CLAY_CERT_NUMBER,
+  CLAY_FULL_NAME,
+  CLAY_UNSIGNED_HINT,
+  isClaySignedDaily,
+} from "@/lib/clay-sign";
+import {
   FLUID_DEFECTS,
   TRANS_DEFECTS,
   composedComments,
@@ -59,17 +66,18 @@ function Line({ value, className = "" }: { value?: string; className?: string })
   );
 }
 
-export function OfficialForm({ report }: { report: Report }) {
+export function OfficialForm({ report, watermark = true }: { report: Report; watermark?: boolean }) {
+  const mark = watermark && report.sample;
   return (
     <div className="official mx-auto flex max-w-[8.5in] flex-col gap-6 text-ink">
-      {report.sample ? (
+      {mark ? (
         <div className="no-print rounded-md bg-warn px-3 py-2 text-center text-sm font-medium text-paper">
           SAMPLE — work has not started. Do not send to Gilbane.
         </div>
       ) : null}
-      <Page1 report={report} />
-      <Page2 report={report} />
-      <Page3 report={report} />
+      <Page1 report={report} watermark={mark} />
+      <Page2 report={report} watermark={mark} />
+      <Page3 report={report} watermark={mark} />
       {report.photos.length ? <PhotoPages report={report} /> : null}
     </div>
   );
@@ -105,10 +113,10 @@ function PageHead({ report, page }: { report: Report; page: number }) {
   );
 }
 
-function Page1({ report }: { report: Report }) {
+function Page1({ report, watermark }: { report: Report; watermark?: boolean }) {
   return (
     <section className="print-page relative rounded-sm border border-line bg-white p-5 shadow-sm">
-      {report.sample ? <Watermark /> : null}
+      {watermark ? <Watermark /> : null}
       <PageHead report={report} page={1} />
       <div className="bar mb-2">Project Information</div>
       <p className="mb-1 text-[12px]">
@@ -247,10 +255,10 @@ function LocCell({
   );
 }
 
-function Page2({ report }: { report: Report }) {
+function Page2({ report, watermark }: { report: Report; watermark?: boolean }) {
   return (
     <section className="print-page relative rounded-sm border border-line bg-white p-5 shadow-sm">
-      {report.sample ? <Watermark /> : null}
+      {watermark ? <Watermark /> : null}
       <div className="bar mb-2">Installation & Testing Location</div>
       <table className="mb-3">
         <tbody>
@@ -331,10 +339,10 @@ function Page2({ report }: { report: Report }) {
   );
 }
 
-function Page3({ report }: { report: Report }) {
+function Page3({ report, watermark }: { report: Report; watermark?: boolean }) {
   return (
     <section className="print-page relative rounded-sm border border-line bg-white p-5 shadow-sm">
-      {report.sample ? <Watermark /> : null}
+      {watermark ? <Watermark /> : null}
       <p className="mb-1 text-[12px] font-bold underline">ADHESION TESTING:</p>
       <p className="mb-1 text-[12px]">
         IS ALL REQUIRED TESTING EQUIPMENT ON-SITE? {yn(report.testingEquipOnSite)}
@@ -385,7 +393,9 @@ function Page3({ report }: { report: Report }) {
       <p className="mb-8 min-h-10 text-[12px]">IF NO, WHY? {report.leftWithGcWhy}</p>
       <div className="mt-8 grid grid-cols-3 items-end gap-4">
         <div>
-          <p className="min-h-10 border-b border-ink">{report.signatureDate}</p>
+          <p className="min-h-10 border-b border-ink">
+            {isClaySignedDaily(report) ? clayFormDate(report) : report.signatureDate}
+          </p>
           <p className="mt-1 text-[10px] uppercase">Date</p>
         </div>
         <div>
@@ -395,10 +405,14 @@ function Page3({ report }: { report: Report }) {
             <p className="min-h-10 border-b border-ink" />
           )}
           <p className="mt-1 text-[10px] uppercase">Level 2/3 Certified Installer Signature</p>
-          <p className="text-[10px]">Clay Butner — do not sign as Clay unless you are Clay</p>
+          <p className="text-[10px]">
+            {isClaySignedDaily(report) ? CLAY_FULL_NAME : CLAY_UNSIGNED_HINT}
+          </p>
         </div>
         <div>
-          <p className="min-h-10 border-b border-ink text-right font-mono text-lg">{report.certNumber}</p>
+          <p className="min-h-10 border-b border-ink text-right font-mono text-lg">
+            {report.certNumber || CLAY_CERT_NUMBER}
+          </p>
           <p className="mt-1 text-[10px] uppercase">Certification #</p>
         </div>
       </div>

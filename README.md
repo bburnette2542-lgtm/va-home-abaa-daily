@@ -16,13 +16,15 @@ Wet mils and adhesion pulls are optional. A day with no tests is complete. Only 
 2. Answer the steps (English or Spanish), add photos
 3. Arnold sends to the office — saved on the server and emailed to [bernie@jamesriverexteriors.com](mailto:bernie@jamesriverexteriors.com)
 4. Print / save PDF and leave the 3-page ABAA form (F-115-041) on site
-5. Bernie uploads Clay's signed PDF on `/office`
+5. Send Clay the signing link from `/office`. He signs on his phone. Signed PDFs are emailed to [bernie@jamesriverexteriors.com](mailto:bernie@jamesriverexteriors.com) and stay on `/office`.
 
 Load a test daily if you just want to practice. Those stay marked SAMPLE.
 
 ## Office
 
-Open `/office`, enter the shared passcode, search by date and status, upload the signed PDF, and use **Make PDF for these dates** (browser Save as PDF). Import older exported JSON files at `/office/import`. Dates on those files stay as they are. **Void/delete** (with confirm) removes a test daily from the server.
+Open `/office`, enter the shared passcode, copy Clay's signing link, search by date and status, download a signed PDF, or upload one if needed. Use **Make PDF for these dates** (browser Save as PDF). Import older exported JSON files at `/office/import`. Dates on those files stay as they are. **Void/delete** (with confirm) removes a test daily from the server.
+
+Clay opens `/sign/<token>` on his phone. That link is not the office passcode. It lists every daily that is not signed yet. One signature signs all of them.
 
 Read-only JSON for the bi-weekly report (same office passcode cookie, or `x-office-passcode` header):
 
@@ -35,3 +37,4 @@ Read-only JSON for the bi-weekly report (same office passcode cookie, or `x-offi
 - `MAILGUN_DOMAIN` — `mg.jamesriverexteriors.com`
 - `OFFICE_PASSCODE` — shared office page passcode
 - `ARNOLD_PIN` — crew-lead PIN so only Arnold can waive a required field
+- `CLAY_SIGN_TOKEN` — long random token for Clay's `/sign/<token>` link (not the office passcode). Optional. If unset, Office creates one in private blob storage the first time you open `/office`.

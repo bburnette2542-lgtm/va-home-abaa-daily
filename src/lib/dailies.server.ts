@@ -1,5 +1,18 @@
 import { del, get, list, put } from "@vercel/blob";
+import { randomBytes } from "node:crypto";
 import { getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
+import {
+  applyClaySignature,
+  assertClaySignInput,
+  claySignLink,
+  claySignedEmailSubject,
+  claySignedEmailText,
+  claySignedPdfFilename,
+  CLAY_TOKEN_BLOB,
+  isUnsignedForClay,
+  sortDailiesForClay,
+  type ClaySignInput,
+} from "./clay-sign";
 import {
   assertCanReplaceDaily,
   assignReportNumbersByDate,
@@ -26,6 +39,7 @@ import {
   passcodeMatches,
 } from "./office-pass";
 import type { Report } from "./report";
+import { buildOfficialSignedPdf } from "./signed-pdf";
 
 export const OFFICE_LOGIN_ERROR = "Office login required";
 
@@ -351,4 +365,127 @@ export async function readSignedPdf(id: string) {
 export async function officeSummary(from?: string, to?: string): Promise<OfficeSummaryRow[]> {
   const reports = await loadDailiesInRange(from, to);
   return reports.map(officeSummaryRow);
+}
+
+function claySignTokenFromEnv() {
+  return process.env.CLAY_SIGN_TOKEN?.trim() || "";
+}
+
+async function readStoredClaySignToken() {
+  const result = await get(CLAY_TOKEN_BLOB, {
+    access: "private",
+    token: blobToken(),
+    useCache: false,
+  });
+  if (!result || result.statusCode !== 200 || !result.stream) return "";
+  return (await new Response(result.stream).text()).trim();
+}
+
+export async function readClaySignToken() {
+  return claySignTokenFromEnv() || (await readStoredClaySignToken());
+}
+
+export async function getOrCreateClaySignToken() {
+  requireOffice();
+  const existing = await readClaySignToken();
+  if (existing) return existing;
+  const token = randomBytes(32).toString("hex");
+  await put(CLAY_TOKEN_BLOB, token, {
+    access: "private",
+    addRandomSuffix: false,
+    allowOverwrite: false,
+    contentType: "text/plain",
+    token: blobToken(),
+  });
+  return (await readStoredClaySignToken()) || token;
+}
+
+export async function claySignLinkForOffice() {
+  const token = await getOrCreateClaySignToken();
+  return { url: claySignLink(publicSiteOrigin(), token) };
+}
+
+export async function assertClayToken(token: string) {
+  const expected = await readClaySignToken();
+  if (!expected || !passcodeMatches(token, expected)) {
+    throw new Error("This signing link is not valid.");
+  }
+}
+
+export async function listUnsignedForClay(token: string): Promise<Report[]> {
+  await assertClayToken(token);
+  const all = await loadAllDailies();
+  return sortDailiesForClay(all.filter(isUnsignedForClay));
+}
+
+export async function emailSignedPdfToBernie(report: Report, pdf: Uint8Array) {
+  const domain = mailgunDomain();
+  const key = mailgunKey();
+  const form = new FormData();
+  form.append("from", OFFICE_FROM);
+  form.append("to", OFFICE_EMAIL);
+  form.append("subject", claySignedEmailSubject(report));
+  form.append("text", claySignedEmailText(report));
+  const filename = claySignedPdfFilename(report);
+  form.append("attachment", new Blob([Buffer.from(pdf)], { type: "application/pdf" }), filename);
+
+  const response = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`api:${key}`).toString("base64")}`,
+    },
+    body: form,
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(detail ? `Could not email Bernie. ${detail}` : "Could not email Bernie.");
+  }
+}
+
+export async function signDailiesAsClay(input: ClaySignInput & { token: string; ids: string[] }) {
+  await assertClayToken(input.token);
+  assertClaySignInput(input);
+  const signedAt = new Date().toISOString();
+  const ids = input.ids.filter(Boolean);
+  if (ids.length === 0) throw new Error("Nothing to sign.");
+
+  const results: { id: string; ok: boolean; error?: string }[] = [];
+  for (const id of ids) {
+    try {
+      const report = await loadDailyById(id);
+      if (!report) throw new Error("Daily not found.");
+      if (!isUnsignedForClay(report)) {
+        results.push({ id, ok: true });
+        continue;
+      }
+      const next = applyClaySignature(
+        report,
+        {
+          signatureDataUrl: input.signatureDataUrl,
+          signatureDate: input.signatureDate,
+          signedBy: input.signedBy,
+          signedAt,
+        },
+        { path: signedPdfPath(id), name: claySignedPdfFilename(report) },
+      );
+      const pdf = await buildOfficialSignedPdf(next);
+      await put(next.signedPdfPath || signedPdfPath(id), Buffer.from(pdf), {
+        access: "private",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: "application/pdf",
+        token: blobToken(),
+      });
+      await saveDailyBlob(next);
+      await emailSignedPdfToBernie(next, pdf);
+      results.push({ id, ok: true });
+    } catch (err) {
+      results.push({
+        id,
+        ok: false,
+        error: err instanceof Error ? err.message : "Could not sign this daily.",
+      });
+    }
+  }
+  return { signedAt, signedBy: input.signedBy.trim(), results };
 }

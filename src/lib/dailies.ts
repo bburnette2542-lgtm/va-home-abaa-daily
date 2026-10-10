@@ -133,6 +133,7 @@ export function normalizeReport(raw: unknown): Report | null {
     signedPdfPath: typeof r.signedPdfPath === "string" ? r.signedPdfPath : "",
     signedPdfName: typeof r.signedPdfName === "string" ? r.signedPdfName : "",
     signedAt: typeof r.signedAt === "string" ? r.signedAt : "",
+    signedBy: typeof r.signedBy === "string" ? r.signedBy : "",
   };
 }
 
@@ -339,6 +340,8 @@ export type DailySummary = {
   status: OfficeStatus;
   waivedCount: number;
   signed: boolean;
+  signedBy: string;
+  signedAt: string;
 };
 
 export function summarizeDaily(report: Report, pathname: string): DailySummary {
@@ -356,6 +359,8 @@ export function summarizeDaily(report: Report, pathname: string): DailySummary {
     status,
     waivedCount: waivedCount(report),
     signed: status === "signed" || status === "filed" || Boolean(report.signedPdfPath),
+    signedBy: typeof report.signedBy === "string" ? report.signedBy : "",
+    signedAt: typeof report.signedAt === "string" ? report.signedAt : "",
   };
 }
 
