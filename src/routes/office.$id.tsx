@@ -122,7 +122,8 @@ function OfficeReceipt() {
                 {daily.priorReportNo ? ` (old #${daily.priorReportNo})` : ""} · {daily.filledBy}
               </p>
               <p className="text-xs text-muted">
-                {statusLabel(flow)} · {daily.photos.length} photos
+                {statusLabel(flow)} · {daily.signedPdfPath || flow === "signed" || flow === "filed" ? t(lang, "signed") : t(lang, "unsigned")}
+                {daily.signedBy ? ` · ${daily.signedBy}` : ""} · {daily.photos.length} photos
               </p>
             </div>
           </div>

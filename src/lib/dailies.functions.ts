@@ -145,3 +145,35 @@ export const voidOfficeDailyFn = createServerFn({ method: "POST" })
     await voidDaily(data.id);
     return { ok: true as const };
   });
+
+export const claySignLinkFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { claySignLinkForOffice } = await import("./dailies.server");
+  return claySignLinkForOffice();
+});
+
+export const listClayUnsignedFn = createServerFn({ method: "GET" })
+  .validator((data: { token: string }) => {
+    if (!data?.token?.trim()) throw new Error("This signing link is not valid.");
+    return { token: data.token.trim() };
+  })
+  .handler(async ({ data }) => {
+    const { listUnsignedForClay } = await import("./dailies.server");
+    return listUnsignedForClay(data.token);
+  });
+
+export const signClayDailiesFn = createServerFn({ method: "POST" })
+  .validator((data: { token: string; ids: string[]; signatureDataUrl: string; signatureDate: string; signedBy: string }) => {
+    if (!data?.token?.trim()) throw new Error("This signing link is not valid.");
+    if (!Array.isArray(data.ids) || data.ids.length === 0) throw new Error("Nothing to sign.");
+    return {
+      token: data.token.trim(),
+      ids: data.ids.map(String),
+      signatureDataUrl: data.signatureDataUrl || "",
+      signatureDate: data.signatureDate || "",
+      signedBy: data.signedBy || "",
+    };
+  })
+  .handler(async ({ data }) => {
+    const { signDailiesAsClay } = await import("./dailies.server");
+    return signDailiesAsClay(data);
+  });

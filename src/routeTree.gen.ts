@@ -17,6 +17,7 @@ import { Route as OfficeIdRouteImport } from './routes/office.$id'
 import { Route as OfficeImportRouteImport } from './routes/office.import'
 import { Route as PrintIdRouteImport } from './routes/print.$id'
 import { Route as PrintRangeRouteImport } from './routes/print.range'
+import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as ApiOfficeSummaryRouteImport } from './routes/api.office.summary'
 import { Route as ApiOfficeSignedIdRouteImport } from './routes/api.office.signed.$id'
 
@@ -60,6 +61,11 @@ const PrintRangeRoute = PrintRangeRouteImport.update({
   path: '/print/range',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignTokenRoute = SignTokenRouteImport.update({
+  id: '/sign/$token',
+  path: '/sign/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOfficeSummaryRoute = ApiOfficeSummaryRouteImport.update({
   id: '/api/office/summary',
   path: '/api/office/summary',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/office/import': typeof OfficeImportRoute
   '/print/$id': typeof PrintIdRoute
   '/print/range': typeof PrintRangeRoute
+  '/sign/$token': typeof SignTokenRoute
   '/office/': typeof OfficeIndexRoute
   '/api/office/summary': typeof ApiOfficeSummaryRoute
   '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/office/import': typeof OfficeImportRoute
   '/print/$id': typeof PrintIdRoute
   '/print/range': typeof PrintRangeRoute
+  '/sign/$token': typeof SignTokenRoute
   '/office': typeof OfficeIndexRoute
   '/api/office/summary': typeof ApiOfficeSummaryRoute
   '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/office/import': typeof OfficeImportRoute
   '/print/$id': typeof PrintIdRoute
   '/print/range': typeof PrintRangeRoute
+  '/sign/$token': typeof SignTokenRoute
   '/office/': typeof OfficeIndexRoute
   '/api/office/summary': typeof ApiOfficeSummaryRoute
   '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/office/import'
     | '/print/$id'
     | '/print/range'
+    | '/sign/$token'
     | '/office/'
     | '/api/office/summary'
     | '/api/office/signed/$id'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/office/import'
     | '/print/$id'
     | '/print/range'
+    | '/sign/$token'
     | '/office'
     | '/api/office/summary'
     | '/api/office/signed/$id'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/office/import'
     | '/print/$id'
     | '/print/range'
+    | '/sign/$token'
     | '/office/'
     | '/api/office/summary'
     | '/api/office/signed/$id'
@@ -151,6 +163,7 @@ export interface RootRouteChildren {
   DailyIdRoute: typeof DailyIdRoute
   PrintIdRoute: typeof PrintIdRoute
   PrintRangeRoute: typeof PrintRangeRoute
+  SignTokenRoute: typeof SignTokenRoute
   ApiOfficeSummaryRoute: typeof ApiOfficeSummaryRoute
   ApiOfficeSignedIdRoute: typeof ApiOfficeSignedIdRoute
 }
@@ -213,6 +226,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrintRangeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sign/$token': {
+      id: '/sign/$token'
+      path: '/sign/$token'
+      fullPath: '/sign/$token'
+      preLoaderRoute: typeof SignTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/office/summary': {
       id: '/api/office/summary'
       path: '/api/office/summary'
@@ -251,6 +271,7 @@ const rootRouteChildren: RootRouteChildren = {
   DailyIdRoute: DailyIdRoute,
   PrintIdRoute: PrintIdRoute,
   PrintRangeRoute: PrintRangeRoute,
+  SignTokenRoute: SignTokenRoute,
   ApiOfficeSummaryRoute: ApiOfficeSummaryRoute,
   ApiOfficeSignedIdRoute: ApiOfficeSignedIdRoute,
 }

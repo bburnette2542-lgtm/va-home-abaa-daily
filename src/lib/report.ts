@@ -157,6 +157,7 @@ export interface Report {
   signedPdfPath?: string;
   signedPdfName?: string;
   signedAt?: string;
+  signedBy?: string;
 }
 
 export type OfficeStatus = "draft" | "waiting_signature" | "signed" | "filed";
@@ -293,6 +294,7 @@ export function newReport(_existingCount = 0): Report {
     signedPdfPath: "",
     signedPdfName: "",
     signedAt: "",
+    signedBy: "",
   };
 }
 
