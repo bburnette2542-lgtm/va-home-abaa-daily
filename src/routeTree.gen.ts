@@ -20,6 +20,7 @@ import { Route as PrintRangeRouteImport } from './routes/print.range'
 import { Route as SignTokenRouteImport } from './routes/sign.$token'
 import { Route as ApiOfficeSummaryRouteImport } from './routes/api.office.summary'
 import { Route as ApiOfficeSignedIdRouteImport } from './routes/api.office.signed.$id'
+import { Route as ApiSignFormCheckRouteImport } from './routes/api.sign.form-check'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +77,11 @@ const ApiOfficeSignedIdRoute = ApiOfficeSignedIdRouteImport.update({
   path: '/api/office/signed/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSignFormCheckRoute = ApiSignFormCheckRouteImport.update({
+  id: '/api/sign/form-check',
+  path: '/api/sign/form-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/office/': typeof OfficeIndexRoute
   '/api/office/summary': typeof ApiOfficeSummaryRoute
   '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
+  '/api/sign/form-check': typeof ApiSignFormCheckRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/office': typeof OfficeIndexRoute
   '/api/office/summary': typeof ApiOfficeSummaryRoute
   '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
+  '/api/sign/form-check': typeof ApiSignFormCheckRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/office/': typeof OfficeIndexRoute
   '/api/office/summary': typeof ApiOfficeSummaryRoute
   '/api/office/signed/$id': typeof ApiOfficeSignedIdRoute
+  '/api/sign/form-check': typeof ApiSignFormCheckRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/office/'
     | '/api/office/summary'
     | '/api/office/signed/$id'
+    | '/api/sign/form-check'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/office'
     | '/api/office/summary'
     | '/api/office/signed/$id'
+    | '/api/sign/form-check'
   id:
     | '__root__'
     | '/'
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/office/'
     | '/api/office/summary'
     | '/api/office/signed/$id'
+    | '/api/sign/form-check'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   SignTokenRoute: typeof SignTokenRoute
   ApiOfficeSummaryRoute: typeof ApiOfficeSummaryRoute
   ApiOfficeSignedIdRoute: typeof ApiOfficeSignedIdRoute
+  ApiSignFormCheckRoute: typeof ApiSignFormCheckRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -247,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOfficeSignedIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sign/form-check': {
+      id: '/api/sign/form-check'
+      path: '/api/sign/form-check'
+      fullPath: '/api/sign/form-check'
+      preLoaderRoute: typeof ApiSignFormCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -274,6 +294,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignTokenRoute: SignTokenRoute,
   ApiOfficeSummaryRoute: ApiOfficeSummaryRoute,
   ApiOfficeSignedIdRoute: ApiOfficeSignedIdRoute,
+  ApiSignFormCheckRoute: ApiSignFormCheckRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
