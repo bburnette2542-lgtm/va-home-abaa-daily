@@ -15,14 +15,19 @@ import {
   type PDFForm,
 } from "pdf-lib";
 import { clayFormDate, CLAY_CERT_NUMBER, CLAY_FULL_NAME } from "./clay-sign.ts";
+import { OFFICIAL_BLANK_PDF_BASE64 } from "./forms/official-blank.ts";
 import { composedComments, FLUID_DEFECTS, TRANS_DEFECTS, type Report } from "./report.ts";
 
 const OFFICIAL_BLANK = "F-115-041-Rev3-blank.pdf";
 
-function officialBlankBytes(): Uint8Array {
+export function officialBlankBytes(): Uint8Array {
+  const inlined = Buffer.from(OFFICIAL_BLANK_PDF_BASE64, "base64");
+  if (inlined.length > 1000 && inlined.subarray(0, 5).toString() === "%PDF-") {
+    return inlined;
+  }
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    fileURLToPath(new URL(`./forms/${OFFICIAL_BLANK}`, import.meta.url)),
+    fileURLToPath(new URL("./forms/F-115-041-Rev3-blank.pdf", import.meta.url)),
     join(here, "forms", OFFICIAL_BLANK),
     join(process.cwd(), "src/lib/forms", OFFICIAL_BLANK),
     join(process.cwd(), "public/forms", OFFICIAL_BLANK),

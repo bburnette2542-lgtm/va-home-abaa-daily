@@ -20,7 +20,7 @@ import {
   TINY_PNG,
 } from "./clay-sign.ts";
 import { newReport } from "./report.ts";
-import { buildOfficialSignedPdf, transparentInkPng } from "./signed-pdf.ts";
+import { buildOfficialSignedPdf, officialBlankBytes, transparentInkPng } from "./signed-pdf.ts";
 import { todayISO } from "./utils.ts";
 
 describe("unsigned list for Clay", () => {
@@ -178,6 +178,14 @@ describe("signature ink PNG", () => {
     assert.equal(inflated[1], 20);
     assert.equal(inflated[4], 255);
     assert.equal(inflated[8], 0);
+  });
+});
+
+describe("official blank bytes", () => {
+  it("loads the inlined F-115-041 PDF even without the file on disk", () => {
+    const bytes = officialBlankBytes();
+    assert.equal(Buffer.from(bytes.subarray(0, 5)).toString(), "%PDF-");
+    assert.ok(bytes.byteLength > 200_000);
   });
 });
 
