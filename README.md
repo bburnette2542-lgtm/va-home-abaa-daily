@@ -38,3 +38,4 @@ Read-only JSON for the bi-weekly report (same office passcode cookie, or `x-offi
 - `OFFICE_PASSCODE` — shared office page passcode
 - `ARNOLD_PIN` — crew-lead PIN so only Arnold can waive a required field
 - `CLAY_SIGN_TOKEN` — long random token for Clay's `/sign/<token>` link (not the office passcode). Optional. If unset, Office creates one in private blob storage the first time you open `/office`.
+- `SIGNED_PDF_CC` — CC on Clay-signed PDF emails. Optional. Defaults to `brian@jamesriverexteriors.com`.
