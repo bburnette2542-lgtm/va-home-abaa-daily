@@ -9,7 +9,9 @@ import {
   claySignFixtureDaily,
   claySignLink,
   claySignedEmailSubject,
+  claySignedMailFields,
   claySignedPdfFilename,
+  DEFAULT_SIGNED_PDF_CC,
   CLAY_CERT_NUMBER,
   CLAY_FULL_NAME,
   CLAY_UNSIGNED_HINT,
@@ -96,6 +98,33 @@ describe("Clay link and email copy", () => {
     assert.equal(claySignedPdfFilename(report), "ABAA-VA-Home-2026-10-09-R1-signed.pdf");
     assert.equal(claySignedEmailSubject(report), "Clay signed VA Home daily 2026-10-09 report 1");
     assert.equal(formatSignedWhen("2026-10-10T00:36:00.000Z"), "Signed Oct 9, 2026 at 8:36 PM");
+  });
+
+  it("CCs Brian on the Clay-signed Mailgun fields without sending mail", () => {
+    const fields = claySignedMailFields({
+      date: "2026-10-09",
+      jobSiteReportNo: "1",
+      filledBy: "Arnold",
+      signedBy: "Clay",
+      signatureDate: "2026-10-09",
+    });
+    assert.equal(fields.to, "bernie@jamesriverexteriors.com");
+    assert.equal(fields.cc, DEFAULT_SIGNED_PDF_CC);
+    assert.equal(fields.cc, "brian@jamesriverexteriors.com");
+    assert.match(fields.subject, /Clay signed/);
+    assert.equal(
+      claySignedMailFields(
+        {
+          date: "2026-10-09",
+          jobSiteReportNo: "1",
+          filledBy: "Arnold",
+          signedBy: "Clay",
+          signatureDate: "2026-10-09",
+        },
+        { SIGNED_PDF_CC: " other@jamesriverexteriors.com " },
+      ).cc,
+      "other@jamesriverexteriors.com",
+    );
   });
 });
 

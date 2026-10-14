@@ -1,4 +1,4 @@
-import { signedPdfPath, workflowStatus } from "./dailies.ts";
+import { OFFICE_EMAIL, OFFICE_FROM, signedPdfPath, workflowStatus } from "./dailies.ts";
 import { newReport, type Report } from "./report.ts";
 import { APP_TZ, todayISO } from "./utils.ts";
 
@@ -7,6 +7,7 @@ export const CLAY_DEFAULT_NAME = "Clay";
 export const CLAY_FULL_NAME = "Clay Butner";
 export const CLAY_TOKEN_BLOB = "signing/clay-token.txt";
 export const CLAY_UNSIGNED_HINT = "Clay Butner — do not sign as Clay unless you are Clay";
+export const DEFAULT_SIGNED_PDF_CC = "brian@jamesriverexteriors.com";
 
 export type ClaySignInput = {
   signatureDataUrl: string;
@@ -42,7 +43,8 @@ export function claySignedEmailSubject(report: Pick<Report, "date" | "jobSiteRep
 }
 
 export function claySignedEmailText(
-  report: Pick<Report, "date" | "jobSiteReportNo" | "filledBy" | "signedBy" | "signatureDate">,
+  report: Pick<Report, "date" | "jobSiteReportNo"> &
+    Partial<Pick<Report, "filledBy" | "signedBy" | "signatureDate">>,
 ) {
   const who = report.signedBy?.trim() || CLAY_DEFAULT_NAME;
   return [
@@ -53,6 +55,24 @@ export function claySignedEmailText(
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+export function signedPdfCc(env: NodeJS.ProcessEnv = process.env) {
+  return env.SIGNED_PDF_CC?.trim() || DEFAULT_SIGNED_PDF_CC;
+}
+
+export function claySignedMailFields(
+  report: Pick<Report, "date" | "jobSiteReportNo"> &
+    Partial<Pick<Report, "filledBy" | "signedBy" | "signatureDate">>,
+  env: NodeJS.ProcessEnv = process.env,
+) {
+  return {
+    from: OFFICE_FROM,
+    to: OFFICE_EMAIL,
+    cc: signedPdfCc(env),
+    subject: claySignedEmailSubject(report),
+    text: claySignedEmailText(report),
+  };
 }
 
 export function assertClaySignInput(input: ClaySignInput) {

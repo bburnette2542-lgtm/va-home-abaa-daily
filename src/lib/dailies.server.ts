@@ -5,8 +5,7 @@ import {
   applyClaySignature,
   assertClaySignInput,
   claySignLink,
-  claySignedEmailSubject,
-  claySignedEmailText,
+  claySignedMailFields,
   claySignedPdfFilename,
   CLAY_TOKEN_BLOB,
   isUnsignedForClay,
@@ -421,11 +420,13 @@ export async function listUnsignedForClay(token: string): Promise<Report[]> {
 export async function emailSignedPdfToBernie(report: Report, pdf: Uint8Array) {
   const domain = mailgunDomain();
   const key = mailgunKey();
+  const fields = claySignedMailFields(report);
   const form = new FormData();
-  form.append("from", OFFICE_FROM);
-  form.append("to", OFFICE_EMAIL);
-  form.append("subject", claySignedEmailSubject(report));
-  form.append("text", claySignedEmailText(report));
+  form.append("from", fields.from);
+  form.append("to", fields.to);
+  form.append("cc", fields.cc);
+  form.append("subject", fields.subject);
+  form.append("text", fields.text);
   const filename = claySignedPdfFilename(report);
   form.append("attachment", new Blob([Buffer.from(pdf)], { type: "application/pdf" }), filename);
 
